@@ -1,0 +1,1527 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>بنك الشبكات</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+Arabic:wght@400;500;600;700;800&family=Tajawal:wght@400;500;600;700;800&display=swap">
+<style>
+/* Layout concept: صفحة تشبه خزانة شبكات (Rack). كل سؤال وحدة 1U بأذنين ومنافذ LED، والإجابة الصحيحة تُضيء بالأخضر. */
+:root {
+  --bg: #EAF0F6; --panel: #FFFFFF; --ink: #0F2236; --mut: #566B80; --line: #D0DAE5;
+  --d-box: #F3F6FA; --d-line: #8FA2B5;
+  --ok: #17A866; --ok-solid: #0E8C52; --ok-ink: #0A733F; --ok-soft: #DCF5E7;
+  --acc: #EE7D1D; --acc-ink: #A9500A; --acc-soft: #FEEBD7; --acc-line: #F2B982;
+  --blue: #2E6FB3; --bad: #D0393B; --bad-soft: #FBE2E0;
+  --grid: rgba(15,34,54,.045);
+  --rack: #0F2236; --rack-2: #17314C; --rack-ink: #E8EEF5; --rack-mut: #9DB2C7;
+  --shadow: 0 1px 0 rgba(15,34,54,.04), 0 10px 28px -16px rgba(15,34,54,.35);
+  --f-disp: 'Noto Sans Arabic', 'Noto Sans Arabic', system-ui, sans-serif;
+  --f-body: 'Noto Sans Arabic', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --f-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #08121D; --panel: #0F1F31; --ink: #E6EDF5; --mut: #91A4B8; --line: #223850;
+    --d-box: #15283C; --d-line: #4A6480;
+    --ok: #2BD485; --ok-solid: #14995A; --ok-ink: #5DE3A5; --ok-soft: #0D3A29;
+    --acc: #FF9A3D; --acc-ink: #FFB46B; --acc-soft: #38240F; --acc-line: #7C4A1D;
+    --blue: #5AA2E6; --bad: #FF6F6F; --bad-soft: #3A1A1D;
+    --grid: rgba(180,210,240,.045);
+    --rack: #0B1827; --rack-2: #132A42;
+    --shadow: 0 1px 0 rgba(0,0,0,.3), 0 14px 30px -18px rgba(0,0,0,.8);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #08121D; --panel: #0F1F31; --ink: #E6EDF5; --mut: #91A4B8; --line: #223850;
+  --d-box: #15283C; --d-line: #4A6480;
+  --ok: #2BD485; --ok-solid: #14995A; --ok-ink: #5DE3A5; --ok-soft: #0D3A29;
+  --acc: #FF9A3D; --acc-ink: #FFB46B; --acc-soft: #38240F; --acc-line: #7C4A1D;
+  --blue: #5AA2E6; --bad: #FF6F6F; --bad-soft: #3A1A1D;
+  --grid: rgba(180,210,240,.045);
+  --rack: #0B1827; --rack-2: #132A42;
+  --shadow: 0 1px 0 rgba(0,0,0,.3), 0 14px 30px -18px rgba(0,0,0,.8);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 150px; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.65;
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 28px 28px; padding-inline: 16px; padding-block: 18px 60px;
+}
+.wrap { max-width: 1160px; margin-inline: auto; }
+button { font: inherit; color: inherit; cursor: pointer; }
+:focus-visible { outline: 3px solid var(--acc); outline-offset: 2px; border-radius: 6px; }
+
+/* ===== الواجهة العلوية: وحدة Rack ===== */
+.rack { position: relative; overflow: hidden; background: linear-gradient(180deg, var(--rack-2), var(--rack)); color: var(--rack-ink);
+  border-radius: 14px; border: 1px solid #2A4966; box-shadow: var(--shadow); padding: 28px clamp(20px, 4vw, 44px) 26px; }
+.rack::before, .rack::after { content: ""; position: absolute; top: 0; bottom: 0; width: 22px; background: repeating-linear-gradient(180deg, transparent 0 28px, rgba(255,255,255,.07) 28px 30px); }
+.rack::before { inset-inline-start: 0; border-inline-end: 1px solid rgba(255,255,255,.08); }
+.rack::after { inset-inline-end: 0; border-inline-start: 1px solid rgba(255,255,255,.08); }
+.rack-in { position: relative; z-index: 1; padding-inline: 14px; display: grid; gap: 14px; }
+.leds { display: flex; gap: 7px; flex-wrap: wrap; }
+.leds i { width: 9px; height: 9px; border-radius: 50%; background: #1E3A55; box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); }
+.leds i.on { background: #2BD485; box-shadow: 0 0 8px #2BD485; animation: blink 2.4s infinite; }
+.leds i.o { background: #FF9A3D; box-shadow: 0 0 8px #FF9A3D; animation: blink 3.1s infinite .6s; }
+.leds i:nth-child(3n) { animation-delay: .4s; } .leds i:nth-child(5n) { animation-delay: 1.1s; }
+@keyframes blink { 0%, 80%, 100% { opacity: 1 } 90% { opacity: .25 } }
+.eyebrow { font-family: var(--f-mono); font-size: 12px; letter-spacing: .08em; color: var(--rack-mut); margin: 0; direction: ltr; text-align: start; }
+h1 { font-family: var(--f-disp); font-weight: 700; font-size: clamp(40px, 8vw, 76px); line-height: 1.05; margin: 0; letter-spacing: 0; text-wrap: balance; }
+h1 span { color: #FF9A3D; }
+.lead { margin: 0; max-width: 56ch; color: #C4D2E0; font-size: clamp(15px, 2vw, 18px); }
+.meters { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 4px; }
+.meter { min-width: 130px; padding: 10px 14px; border-radius: 8px; background: rgba(0,0,0,.28); border: 1px solid rgba(255,255,255,.1); }
+.meter b { display: block; font-family: var(--f-mono); font-size: 26px; font-weight: 600; line-height: 1.1; color: #7CF0B8; font-variant-numeric: tabular-nums; }
+.meter small { color: var(--rack-mut); font-size: 12px; }
+.meter.wide { flex: 1 1 240px; }
+.bar { height: 8px; border-radius: 4px; background: rgba(255,255,255,.1); margin-top: 8px; overflow: hidden; }
+.bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #2BD485, #7CF0B8); transition: width .5s ease; }
+.cables { position: absolute; inset-inline-end: -10px; top: 0; height: 100%; width: min(40%, 460px); opacity: .55; pointer-events: none; z-index: 0; -webkit-mask-image: linear-gradient(to right, #000 45%, transparent); mask-image: linear-gradient(to right, #000 45%, transparent); }
+.cables path { fill: none; stroke-width: 7; stroke-linecap: round; }
+
+/* ===== شريط الأدوات ===== */
+.bar-tools { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; margin-top: 16px; padding: 12px; border-radius: 12px;
+  background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow); display: grid; gap: 10px; }
+.bar-tools > * { min-width: 0; }
+.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; min-width: 0; }
+.chips { max-width: 100%; }
+.search { flex: 1 1 220px; min-width: 0; position: relative; }
+.search input { width: 100%; font: inherit; color: var(--ink); background: var(--d-box); border: 1px solid var(--line); border-radius: 9px; padding: 9px 38px 9px 12px; }
+.search svg { position: absolute; inset-inline-start: auto; right: 11px; top: 50%; transform: translateY(-50%); width: 17px; height: 17px; stroke: var(--mut); fill: none; stroke-width: 2; }
+.seg { display: inline-flex; background: var(--d-box); border: 1px solid var(--line); border-radius: 9px; padding: 3px; gap: 3px; }
+.seg button { border: 0; background: transparent; padding: 6px 14px; border-radius: 7px; font-weight: 600; color: var(--mut); }
+.seg button[aria-pressed="true"] { background: var(--rack); color: #fff; }
+.tgl { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line); background: var(--d-box); border-radius: 9px; padding: 7px 12px; font-weight: 600; color: var(--mut); }
+.tgl[aria-pressed="true"] { color: var(--ink); border-color: var(--acc); background: var(--acc-soft); }
+.tgl i { width: 9px; height: 9px; border-radius: 50%; background: var(--d-line); }
+.tgl[aria-pressed="true"] i { background: var(--acc); box-shadow: 0 0 6px var(--acc); }
+.chips { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
+.chip { flex: none; border: 1px solid var(--line); background: var(--d-box); border-radius: 999px; padding: 5px 13px; font-size: 13px; font-weight: 600; color: var(--mut); white-space: nowrap; }
+.chip em { font-style: normal; font-family: var(--f-mono); font-size: 11px; opacity: .8; margin-inline-start: 6px; }
+.chip[aria-pressed="true"] { background: var(--ok-solid); border-color: var(--ok-solid); color: #fff; }
+.readout { margin-inline-start: auto; font-family: var(--f-mono); font-size: 13px; color: var(--mut); font-variant-numeric: tabular-nums; }
+.readout b { color: var(--ink); }
+.iconbtn { width: 38px; height: 38px; display: grid; place-items: center; border: 1px solid var(--line); background: var(--d-box); border-radius: 9px; }
+.iconbtn svg { width: 18px; height: 18px; stroke: var(--ink); fill: none; stroke-width: 2; }
+
+/* ===== البطاقات ===== */
+.list { display: grid; gap: 22px; margin-top: 22px; }
+.u { display: grid; grid-template-columns: 78px minmax(0, 1fr); background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
+.ear { background: linear-gradient(180deg, var(--rack-2), var(--rack)); color: var(--rack-ink); display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 16px 6px; border-inline-end: 1px solid rgba(255,255,255,.1); position: relative; }
+.ear::before, .ear::after { content: ""; position: absolute; inset-inline: 0; margin-inline: auto; width: 10px; height: 10px; border-radius: 50%; background: #0A1623; box-shadow: inset 0 0 0 2px #3A5776; }
+.ear::before { top: 8px; } .ear::after { bottom: 8px; }
+.ear .no { margin-top: 14px; font-family: var(--f-mono); font-weight: 600; font-size: 22px; letter-spacing: .02em; font-variant-numeric: tabular-nums; direction: ltr; }
+.ear .no small { display: block; font-size: 11px; font-weight: 500; color: var(--rack-mut); letter-spacing: .12em; text-align: center; }
+.ear .led { width: 12px; height: 12px; border-radius: 50%; background: #20405E; box-shadow: inset 0 0 0 1px rgba(255,255,255,.1); }
+.u[data-known="1"] .ear .led { background: #2BD485; box-shadow: 0 0 10px #2BD485; }
+.body { padding: 16px clamp(14px, 2.4vw, 24px) 16px; display: grid; gap: 14px; min-width: 0; }
+.qh { display: grid; gap: 6px; }
+.topic { font-size: 12px; font-weight: 700; color: var(--acc-ink); letter-spacing: .02em; display: flex; gap: 8px; align-items: center; }
+.topic::before { content: ""; width: 18px; height: 3px; border-radius: 2px; background: var(--acc); }
+.q-en { margin: 0; font-size: 15.5px; font-weight: 500; direction: ltr; text-align: left; color: var(--ink); font-family: var(--f-body); }
+.q-ar { margin: 0; color: var(--mut); font-size: 14px; font-weight: 500; }
+.cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr); gap: 18px; align-items: start; }
+.opts { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.op { width: 100%; display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 10px; align-items: center; text-align: start; padding: 9px 12px; border-radius: 10px;
+  background: var(--d-box); border: 1px solid var(--line); direction: ltr; transition: border-color .15s, background .15s; }
+.op .jack { width: 24px; height: 24px; border-radius: 6px; background: var(--panel); border: 1px solid var(--d-line); display: grid; place-items: center; font-family: var(--f-mono); font-size: 12px; font-weight: 600; color: var(--mut); }
+.op .tx { font-size: 14px; line-height: 1.45; text-align: left; overflow-wrap: anywhere; }
+.op .st { font-size: 11.5px; font-weight: 700; font-family: var(--f-body); direction: rtl; }
+button.op:not([disabled]):hover { border-color: var(--acc); }
+.op[disabled] { color: inherit; opacity: 1; cursor: default; }
+.rev .op { opacity: .62; }
+.rev .op.is-ok { opacity: 1; background: var(--ok-soft); border-color: var(--ok); box-shadow: 0 0 0 1px var(--ok), 0 0 18px -4px var(--ok); }
+.rev .op.is-ok .jack { background: var(--ok); border-color: var(--ok); color: #04210F; }
+.rev .op.is-ok .st { color: var(--ok-ink); }
+.rev .op.is-no { opacity: 1; background: var(--bad-soft); border-color: var(--bad); }
+.rev .op.is-no .st { color: var(--bad); }
+.op.pick { border-color: var(--acc); background: var(--acc-soft); }
+.op.pick .jack { background: var(--acc); border-color: var(--acc); color: #2A1500; }
+.dg { margin: 0; display: grid; gap: 8px; min-width: 0; }
+.screen { position: relative; border: 1px solid var(--line); border-radius: 10px; background: var(--panel);
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px); background-size: 18px 18px; padding: 6px; overflow: hidden; }
+.screen svg { display: block; width: 100%; height: auto; }
+.dg figcaption { font-size: 12.5px; color: var(--mut); text-align: center; }
+.veil .screen svg, .veil .tip p { filter: blur(9px); opacity: .55; user-select: none; }
+.veil-note { position: absolute; inset: 0; display: none; place-items: center; z-index: 2; }
+.veil .veil-note { display: grid; }
+.veil-note span { background: var(--rack); color: #fff; font-weight: 600; font-size: 13px; padding: 6px 14px; border-radius: 999px; }
+.tip { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 14px; align-items: center; padding: 11px 14px; border-radius: 10px; background: var(--acc-soft); border: 1px dashed var(--acc-line); }
+.tip .tag { background: var(--acc); color: #2A1500; font-weight: 700; font-size: 12.5px; padding: 5px 12px 5px 14px; clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 8px 50%); white-space: nowrap; }
+.tip p { margin: 0; font-weight: 600; font-size: 15.5px; color: var(--ink); }
+.why { margin: 0; color: var(--mut); font-size: 14px; }
+.why b { color: var(--ink); }
+.foot { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.btn { border: 1px solid var(--line); background: var(--d-box); border-radius: 9px; padding: 7px 14px; font-weight: 600; font-size: 13.5px; display: inline-flex; gap: 8px; align-items: center; }
+.btn i { width: 10px; height: 10px; border-radius: 50%; background: var(--d-line); }
+.btn.learn[aria-pressed="true"] { border-color: var(--ok); background: var(--ok-soft); color: var(--ok-ink); }
+.btn.learn[aria-pressed="true"] i { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+.btn.primary { background: var(--rack); color: #fff; border-color: var(--rack); }
+.verdict { font-weight: 700; font-size: 13.5px; }
+.verdict.good { color: var(--ok-ink); } .verdict.badv { color: var(--bad); }
+.empty { text-align: center; padding: 50px 16px; color: var(--mut); border: 1px dashed var(--d-line); border-radius: 12px; background: var(--panel); }
+footer.end { margin-top: 30px; text-align: center; color: var(--mut); font-size: 13px; }
+.to-top { position: fixed; inset-inline-end: 14px; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); z-index: 30; width: 42px; height: 42px; padding: 0; justify-content: center; border-radius: 50%; opacity: .92; }
+.to-top svg { width: 18px; height: 18px; stroke: #fff; fill: none; stroke-width: 2.4; }
+
+/* ===== رسومات SVG ===== */
+svg .t { font-family: var(--f-body); }
+svg .t.mono { font-family: var(--f-mono); }
+svg .t.ink { fill: var(--ink); } svg .t.mut { fill: var(--mut); } svg .t.ok { fill: var(--ok-ink); } svg .t.acc { fill: var(--acc-ink); }
+svg .t.bad { fill: var(--bad); } svg .t.on { fill: #fff; }
+svg .bx { fill: var(--d-box); stroke: var(--d-line); stroke-width: 1.2; }
+svg .bx.hi { fill: var(--ok-soft); stroke: var(--ok); stroke-width: 2; }
+svg .bx.dim { opacity: .8; }
+svg .bx.acc { fill: var(--acc-soft); stroke: var(--acc); stroke-width: 1.5; }
+svg .bx.bad { fill: var(--bad-soft); stroke: var(--bad); stroke-width: 1.6; }
+svg .bx.solid { fill: var(--ok-solid); stroke: var(--ok-solid); }
+svg .bx.jk { fill: #4B7FBF; stroke: #2E5C99; }
+svg .bx.term { fill: #0B1623; stroke: #29476A; }
+svg .ln { stroke: var(--d-line); stroke-width: 1.6; fill: none; }
+svg .ln.hi { stroke: var(--ok); stroke-width: 2.2; } svg .ln.acc { stroke: var(--acc); stroke-width: 2.2; }
+svg .ln.bad { stroke: var(--bad); stroke-width: 2; }
+svg .ln.dash { stroke-dasharray: 4 3; }
+svg .ah { fill: var(--d-line); } svg .ah.hi { fill: var(--ok); } svg .ah.acc { fill: var(--acc); }
+svg .mk circle { fill: var(--ok-solid); } svg .mk path { stroke: #fff; stroke-width: 2.2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+svg .mk.bad circle { fill: var(--bad); }
+svg .mkbig { stroke: #fff; stroke-width: 7; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+svg .mkbig.bad { stroke: var(--bad); }
+svg .shield { fill: none; stroke: #C4CBD3; stroke-width: 3; }
+svg .tp { fill: #7FD6A6; } svg .tc { fill: #E8EEF5; } svg .to { fill: #9FB3C8; } svg .te { fill: #FF8B80; } svg .tmut { fill: #6F89A3; }
+svg .tline { fill: #2F5D8F; opacity: .55; }
+
+@media (max-width: 860px) {
+  .cols { grid-template-columns: minmax(0, 1fr); }
+  .dg { order: -1; }
+}
+@media (max-width: 560px) {
+  body { font-size: 14.5px; }
+  .u { grid-template-columns: minmax(0, 1fr); }
+  .ear { flex-direction: row; justify-content: space-between; padding: 8px 22px; border-inline-end: 0; border-bottom: 1px solid rgba(255,255,255,.1); }
+  .ear::before, .ear::after { top: 50%; bottom: auto; transform: translateY(-50%); inset-inline: auto; margin: 0; }
+  .ear::before { inset-inline-start: 7px; } .ear::after { inset-inline-end: 7px; }
+  .ear .no { margin-top: 0; font-size: 18px; display: flex; gap: 8px; align-items: baseline; } .ear .no small { display: inline; }
+  .tip { grid-template-columns: minmax(0, 1fr); gap: 8px; } .tip .tag { justify-self: start; }
+  .readout { margin-inline-start: 0; width: 100%; }
+  .bar-tools { position: static; }
+  .cables { opacity: .35; width: 70%; }
+}
+@media (prefers-reduced-motion: reduce) { .leds i { animation: none !important; } html { scroll-behavior: auto; } .bar i { transition: none; } }
+</style><style>
+/* ===== مشترك: إجابات نصية، تنبيه، لوحة، تنقل ===== */
+.lcol { display: grid; gap: 10px; min-width: 0; align-content: start; }
+.ans { border: 1px solid var(--line); border-radius: 10px; background: var(--d-box); padding: 12px 14px; display: grid; gap: 10px; }
+.ans .lab { font-size: 12px; font-weight: 700; color: var(--mut); }
+.ans .chs { display: flex; flex-wrap: wrap; gap: 8px; }
+.ans .ch { font-family: var(--f-body); font-weight: 600; font-size: 15px; padding: 7px 14px; border-radius: 9px; background: var(--ok-soft); border: 1px solid var(--ok); color: var(--ok-ink); box-shadow: 0 0 16px -6px var(--ok); overflow-wrap: anywhere; }
+.veil .ans .chs { filter: blur(9px); opacity: .6; user-select: none; }
+.note { border: 1px solid var(--bad); background: var(--bad-soft); color: var(--ink); border-radius: 10px; padding: 9px 13px; font-size: 13.5px; }
+.note b { color: var(--bad); }
+svg .bx.brd { fill: var(--d-box); stroke: var(--d-line); stroke-width: 1.6; }
+.nav { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; padding: 6px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow); }
+.nav a { text-decoration: none; color: var(--mut); font-weight: 700; font-size: 13.5px; padding: 7px 14px; border-radius: 8px; display: inline-flex; gap: 8px; align-items: center; }
+.nav a i { width: 9px; height: 9px; border-radius: 50%; background: var(--c); }
+.nav a:hover { background: var(--d-box); color: var(--ink); }
+.nav a[aria-current="page"] { background: var(--c); color: #fff; }
+.nav a[aria-current="page"] i { background: #fff; }
+.nav a.home { margin-inline-end: auto; }
+@media (max-width: 560px) { .nav { overflow-x: auto; flex-wrap: nowrap; } .nav a { flex: none; } .nav a.home { margin-inline-end: 0; } }
+/* تهدئة عامة: بلا توهّج */
+.rev .op.is-ok{box-shadow:none}.ans .ch{box-shadow:none}
+.btn.learn[aria-pressed="true"] i,.tgl[aria-pressed="true"] i{box-shadow:none}
+.meter{background:rgba(0,0,0,.2)}
+
+/* هادئ للمذاكرة */
+:root{--bg:#F6F4EF;--panel:#FFFFFF;--ink:#2B3138;--mut:#69727D;--line:#E3E0D9;--d-box:#F8F7F3;--d-line:#B3B8BF;--ok:#4E9A7A;--ok-solid:#3F8266;--ok-ink:#2B6A51;--ok-soft:#E6F1EA;--bad:#BF5F58;--bad-soft:#F7E7E5;--acc:#A98450;--acc-ink:#7A5B2E;--acc-soft:#F8F2E6;--acc-line:#E5D4B0;--blue:#5B7FA3;--brand:#4F7C8A;--brand-soft:color-mix(in srgb,#4F7C8A 11%,#fff);--grid:rgba(43,49,56,.025);--rack:#4F7C8A;--rack-2:#4F7C8A;--c:#4F7C8A;--shadow:0 1px 2px rgba(43,49,56,.05),0 8px 22px -16px rgba(43,49,56,.2);}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#15181C;--panel:#1D2126;--ink:#E5E7EA;--mut:#98A1AB;--line:#2C3239;--d-box:#242A30;--d-line:#5A636D;--ok:#5FBE98;--ok-solid:#2F7A5C;--ok-ink:#8DD8B8;--ok-soft:#18312A;--bad:#E58F88;--bad-soft:#3A2523;--acc:#D2AE74;--acc-ink:#E2C594;--acc-soft:#2E2819;--acc-line:#6A5934;--blue:#86A8CB;--brand:#7FB0BE;--brand-soft:color-mix(in srgb,#7FB0BE 13%,#1D2126);--grid:rgba(220,230,255,.025);--rack:#7FB0BE;--rack-2:#7FB0BE;--c:#7FB0BE;--shadow:0 1px 0 rgba(0,0,0,.25),0 10px 24px -18px rgba(0,0,0,.6);color-scheme:dark;}}
+:root[data-theme="dark"]{--bg:#15181C;--panel:#1D2126;--ink:#E5E7EA;--mut:#98A1AB;--line:#2C3239;--d-box:#242A30;--d-line:#5A636D;--ok:#5FBE98;--ok-solid:#2F7A5C;--ok-ink:#8DD8B8;--ok-soft:#18312A;--bad:#E58F88;--bad-soft:#3A2523;--acc:#D2AE74;--acc-ink:#E2C594;--acc-soft:#2E2819;--acc-line:#6A5934;--blue:#86A8CB;--brand:#7FB0BE;--brand-soft:color-mix(in srgb,#7FB0BE 13%,#1D2126);--grid:rgba(220,230,255,.025);--rack:#7FB0BE;--rack-2:#7FB0BE;--c:#7FB0BE;--shadow:0 1px 0 rgba(0,0,0,.25),0 10px 24px -18px rgba(0,0,0,.6);color-scheme:dark;}
+body{background-image:none}
+.rack{background:var(--panel);color:var(--ink);border:1px solid var(--line);box-shadow:var(--shadow);border-top:4px solid var(--brand)}
+.rack::before,.rack::after,.cables,.leds{display:none}
+.rack-in{padding-inline:0}
+h1 span{color:var(--brand)}
+.eyebrow{color:var(--mut)}.lead{color:var(--mut)}
+.meter{background:var(--brand-soft);border:1px solid var(--line)}.meter b{color:var(--ink)}.meter small{color:var(--mut)}
+.bar{background:var(--line)}.bar i{background:var(--brand)}
+.chip[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:#fff}
+.seg button[aria-pressed="true"],.btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+.veil-note span{background:var(--brand);color:#fff}
+:root[data-theme="dark"] .chip[aria-pressed="true"],:root[data-theme="dark"] .seg button[aria-pressed="true"],:root[data-theme="dark"] .btn.primary,:root[data-theme="dark"] .veil-note span{color:#15181C}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .chip[aria-pressed="true"],:root:not([data-theme="light"]) .seg button[aria-pressed="true"],:root:not([data-theme="light"]) .btn.primary,:root:not([data-theme="light"]) .veil-note span{color:#15181C}}
+.to-top svg{stroke:currentColor}
+.ear{background:var(--brand-soft);color:var(--ink);border-inline-end:1px solid var(--line)}
+.ear::before,.ear::after{background:var(--line);box-shadow:none}
+.ear .no{color:var(--brand)}.ear .no small{color:var(--mut)}
+.ear .led{background:var(--line);box-shadow:none}.u[data-known="1"] .ear .led{background:var(--ok);box-shadow:none}
+.tip .tag{background:var(--acc);color:#fff}
+:root[data-theme="dark"] .tip .tag{color:#15181C}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .tip .tag{color:#15181C}}
+.rev .op.is-ok,.ans .ch{box-shadow:none}
+.topic{color:var(--brand)}.topic::before{background:var(--brand)}
+
+@media (max-width:560px){.ear{border-bottom:1px solid var(--line)}}
+
+</style>
+
+<style id="glass-refresh">
+/* Unified ink titles and quiet glass surfaces. */
+h1,h1 span,h2,h2 span,h3,.rack h1,.rack h1 span{color:var(--ink)!important}
+body{background-image:radial-gradient(ellipse at 8% 4%,color-mix(in srgb,var(--brand) 10%,transparent),transparent 34%),radial-gradient(ellipse at 92% 45%,color-mix(in srgb,var(--blue) 7%,transparent),transparent 38%)}
+.rack,.bar-tools,.nav,.u,.empty,.screen,.ans,.op,.chip,.tgl,.seg,.btn,.tip,.meter{backdrop-filter:blur(16px) saturate(128%);-webkit-backdrop-filter:blur(16px) saturate(128%)}
+.rack,.bar-tools,.nav,.u,.empty{background:color-mix(in srgb,var(--panel) 76%,transparent);border-color:color-mix(in srgb,var(--line) 72%,white 18%);box-shadow:0 14px 38px rgba(35,58,65,.065),inset 0 1px 0 rgba(255,255,255,.52)}
+.rack{border-radius:18px;border-top:1px solid color-mix(in srgb,var(--line) 72%,white 18%)}
+.bar-tools,.nav{border-radius:15px}
+.u{border-radius:16px;overflow:hidden}
+.screen,.ans,.op,.chip,.tgl,.seg,.btn,.meter{background-color:color-mix(in srgb,var(--d-box) 78%,transparent)}
+.op{border-color:color-mix(in srgb,var(--line) 72%,white 20%);border-radius:12px}
+.chip,.tgl,.btn,.meter{border-radius:11px}
+.topic,.topic::before{color:var(--brand);background-color:var(--brand)}
+.topic{background:none}
+.tip{border-style:solid;border-color:color-mix(in srgb,var(--acc-line) 72%,transparent);background:color-mix(in srgb,var(--acc-soft) 75%,transparent);border-radius:13px}
+.ear{background:color-mix(in srgb,var(--brand-soft) 70%,transparent)}
+footer.end{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 4px;color:var(--mut)}
+footer.end .credit{display:inline-flex;align-items:center;gap:7px;direction:ltr;font:700 12px var(--f-body);white-space:nowrap;color:var(--mut)}
+footer.end .credit b{padding:4px 8px;border:1px solid color-mix(in srgb,var(--brand) 38%,var(--line));border-radius:8px;background:var(--brand-soft);color:var(--brand);font:800 13px var(--f-body);letter-spacing:.01em}
+:root[data-theme="dark"] footer.end .credit b{color:#efbed0;border-color:color-mix(in srgb,var(--brand) 45%,var(--line))}
+:root[data-theme="dark"] .rack,:root[data-theme="dark"] .bar-tools,:root[data-theme="dark"] .nav,:root[data-theme="dark"] .u,:root[data-theme="dark"] .empty{border-color:color-mix(in srgb,var(--line) 75%,white 6%);box-shadow:0 16px 42px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.045)}
+@media(prefers-reduced-transparency:reduce){.rack,.bar-tools,.nav,.u,.empty,.screen,.ans,.op,.chip,.tgl,.seg,.btn,.tip,.meter{backdrop-filter:none;-webkit-backdrop-filter:none}.rack,.bar-tools,.nav,.u,.empty{background:var(--panel)}}
+@media(max-width:560px){footer.end{justify-content:center;text-align:center}}
+
+/* In self-test, keep the illustration itself hidden until the learner answers. */
+.veil .screen svg,.veil .screen img,.veil .screen canvas{filter:none!important;opacity:0!important;visibility:hidden!important}
+.veil .dg figcaption{visibility:hidden}
+
+/* Dark mode surfaces: lower glare and make the page background deliberate. */
+:root[data-theme="dark"] body{background-color:#14171c;background-image:none!important}
+:root[data-theme="dark"] .rack,:root[data-theme="dark"] .bar-tools,:root[data-theme="dark"] .nav,:root[data-theme="dark"] .u,:root[data-theme="dark"] .empty{background:color-mix(in srgb,var(--panel) 94%,#0c1014);border-color:color-mix(in srgb,var(--line) 86%,white 3%);box-shadow:0 18px 46px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.035)}
+:root[data-theme="dark"] .screen,:root[data-theme="dark"] .ans,:root[data-theme="dark"] .op,:root[data-theme="dark"] .chip,:root[data-theme="dark"] .tgl,:root[data-theme="dark"] .seg,:root[data-theme="dark"] .btn,:root[data-theme="dark"] .meter{background-color:color-mix(in srgb,var(--d-box) 92%,var(--panel));border-color:color-mix(in srgb,var(--line) 86%,white 3%)}
+:root[data-theme="dark"] .tip{background:color-mix(in srgb,var(--acc-soft) 88%,var(--panel));border-color:color-mix(in srgb,var(--acc-line) 82%,var(--line))}
+@media(prefers-reduced-transparency:reduce){:root[data-theme="dark"] .rack,:root[data-theme="dark"] .bar-tools,:root[data-theme="dark"] .nav,:root[data-theme="dark"] .u,:root[data-theme="dark"] .empty{background:var(--panel)}}
+</style>
+</head><body><div class="wrap" dir="rtl" lang="ar">
+  
+  <header class="rack">
+    <svg class="cables" viewBox="0 0 520 330" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M-20 70 C 120 70, 150 250, 300 250 S 480 120, 560 150" stroke="#EE7D1D" />
+      <path d="M-20 130 C 100 130, 190 40, 320 80 S 470 280, 560 250" stroke="#5AA2E6" />
+      <path d="M-20 215 C 140 215, 170 150, 310 170 S 450 60, 560 70" stroke="#2BD485" />
+    </svg>
+    <div class="rack-in">
+      <div class="leds" id="leds" aria-hidden="true"></div>
+      <p class="eyebrow">NETWORKING · COLLECTION GROUP · 114 QUESTIONS</p>
+      <h1>بنك <span>الشبكات</span></h1>
+      <p class="lead">كل سؤال بجانبه رسم عربي يوضّح الفكرة، وسطر واحد يثبّت الإجابة في الذهن. راجع بسرعة أو اختبر نفسك.</p>
+      <div class="meters">
+        <div class="meter"><b>114</b><small>سؤالًا</small></div>
+        <div class="meter"><b>8</b><small>محاور</small></div>
+        <div class="meter wide"><b><span id="mKnown">0</span> / <span id="mTot">0</span></b><small>أسئلة حفظتها</small><div class="bar"><i id="mBar"></i></div></div>
+      </div>
+    </div>
+  </header>
+
+  <section class="bar-tools" aria-label="أدوات التصفية">
+    <div class="row">
+      <label class="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="search" type="search" placeholder="ابحث بالرقم أو الكلمة، مثال: switch أو 57" aria-label="بحث في الأسئلة"></label>
+      <div class="seg" role="group" aria-label="وضع العرض"><button type="button" data-mode="review" aria-pressed="false">مراجعة</button><button type="button" data-mode="test" aria-pressed="true">اختبار ذاتي</button></div>
+      <button type="button" class="tgl" id="unl" aria-pressed="false"><i></i>غير المحفوظة فقط</button>
+      <button type="button" class="iconbtn" id="theme" aria-label="تبديل المظهر الفاتح والداكن"><svg viewBox="0 0 24 24"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3 6.6 6.6 0 0 0 21 12.8z"/></svg></button>
+    </div>
+    <div class="row"><div class="chips" id="chips" role="group" aria-label="المحاور"></div></div>
+    <div class="row"><span class="readout" id="readout"></span></div>
+  </section>
+
+  <main class="list" id="list" aria-live="polite"></main>
+  <footer class="end">مصدر الأسئلة: ملف «بنك الشبكات قروب التجميع». الإجابات الصحيحة مأخوذة من العلامات الخضراء في الملف.<span class="credit">Built by <b>Yazeed Hamed</b></span></footer>
+  <button type="button" class="btn primary to-top" id="top" aria-label="العودة للأعلى"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+</div>
+<script>window.CFG={"key":"nb","q":"Q"};
+/* مساعدات بناء الرسوم */
+const g = (items, hi, cap) => ({ t: 'grid', items: items.map(([t, d, m]) => ({ t, d, m })), hi, cap });
+const ch = (items, hi, cap, title) => ({ t: 'chain', items: items.map(([t, s, m]) => ({ t, s, m })), hi, cap, title });
+const ly = (m, hi, cap) => ({ t: 'layers', m, hi, cap });
+const cm = (lines, cap, title) => ({ t: 'cmd', lines, cap, title });
+const q = (id, topic, o, a, en, ar, tip, why, d) => ({ id, topic, o, a, en, ar, tip, why, d });
+
+
+/* ===== مولّد الرسوم التوضيحية (SVG) ===== */
+const W = 360, H = 200;
+const E = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+function T(x, y, s, o = {}) {
+  const ar = /[\u0600-\u06FF]/.test(s), m = o.m && !ar; let a = o.a || 'middle';
+  if (!m && a !== 'middle') a = a === 'end' ? 'start' : 'end'; /* الصفحة RTL: نحوّل المواضع البصرية */
+  return `<text x="${x}" y="${y}" class="t ${o.c || 'ink'}${m ? ' mono' : ''}" font-size="${o.s || 11}" text-anchor="${a}" font-weight="${o.w || 500}"${m ? ' direction="ltr"' : ''}>${E(s)}</text>`;
+}
+const R = (x, y, w, h, k = '', r = 6) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" class="bx ${k}"/>`;
+const L = (x1, y1, x2, y2, k = '') => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" class="ln ${k}"/>`;
+const C = (x, y, r, k = '') => `<circle cx="${x}" cy="${y}" r="${r}" class="bx ${k}"/>`;
+function A(x1, y1, x2, y2, k = '') {
+  const a = Math.atan2(y2 - y1, x2 - x1), s = 6.5;
+  const p = [[x2, y2], [x2 - s * Math.cos(a - .45), y2 - s * Math.sin(a - .45)], [x2 - s * Math.cos(a + .45), y2 - s * Math.sin(a + .45)]];
+  return L(x1, y1, x2 - 3 * Math.cos(a), y2 - 3 * Math.sin(a), k) + `<polygon points="${p.map(q => q.map(v => v.toFixed(1)).join(',')).join(' ')}" class="ah ${k.replace('dash', '')}"/>`;
+}
+function wrap(s, n) {
+  const w = String(s).split(' '), out = []; let cur = '';
+  for (const x of w) { if ((cur + ' ' + x).trim().length > n && cur) { out.push(cur); cur = x; } else cur = (cur + ' ' + x).trim(); }
+  if (cur) out.push(cur); return out;
+}
+function ML(x, y, s, n, o = {}) {
+  const ls = wrap(s, n), lh = (o.s || 10) * 1.45, y0 = y - (ls.length - 1) * lh / 2;
+  return ls.map((l, i) => T(x, y0 + i * lh + 3.5, l, o)).join('');
+}
+const OK = (x, y) => `<g class="mk ok"><circle cx="${x}" cy="${y}" r="9"/><path d="M${x - 4} ${y} l3 3 l5-6"/></g>`;
+const NO = (x, y) => `<g class="mk bad"><circle cx="${x}" cy="${y}" r="9"/><path d="M${x - 3.5} ${y - 3.5} l7 7 M${x + 3.5} ${y - 3.5} l-7 7"/></g>`;
+const inc = (a, v) => (a || []).includes(v);
+
+/* ---------- الطبقات ---------- */
+const TCP = [['التطبيق', 'Application', 'HTTP · DNS · DHCP', ''], ['النقل', 'Transport', 'TCP · UDP', 'Segment'], ['الإنترنت', 'Internet', 'IP · ICMP', 'Packet'], ['وصول الشبكة', 'Network Access', 'Ethernet · Wi-Fi', 'Frame']];
+const OSI = [['التطبيق', 'Application', '', 'Data'], ['العرض', 'Presentation', '', 'Data'], ['الجلسة', 'Session', '', 'Data'], ['النقل', 'Transport', 'TCP · UDP', 'Segment'], ['الشبكة', 'Network', 'IP', 'Packet'], ['ربط البيانات', 'Data Link', 'MAC · Ethernet', 'Frame'], ['الفيزيائية', 'Physical', 'كابل · إشارة', 'Bits']];
+function layers(s) {
+  const D = s.m === 'osi' ? OSI : TCP, n = D.length, gap = n > 4 ? 4 : 8, h = (H - 16 - (n - 1) * gap) / n; let o = '';
+  D.forEach((d, i) => {
+    const y = 8 + i * (h + gap), hi = inc(s.hi, i), cy = y + h / 2 + 4, sz = n > 4 ? 11 : 13;
+    o += R(8, y, 344, h, hi ? 'hi' : '');
+    o += T(344, cy, d[0], { a: 'end', s: sz, w: 700, c: hi ? 'ok' : 'ink' });
+    o += T(262, cy, d[1], { a: 'end', s: 9, m: 1, c: 'mut' });
+    if (s.m === 'osi') o += T(18, cy, 'L' + (7 - i), { a: 'start', s: 9, m: 1, c: 'mut', w: 700 });
+    if (d[2]) o += T(s.m === 'osi' ? 40 : 18, cy, d[2], { a: 'start', s: 9, m: 1, c: 'mut' });
+    if (d[3]) { o += R(124, y + h / 2 - 8, 54, 16, hi ? 'solid' : 'acc', 8) + T(151, cy - .5, d[3], { s: 8.5, m: 1, c: hi ? 'on' : 'acc', w: 700 }); }
+  });
+  return o;
+}
+
+/* ---------- سلسلة خطوات ---------- */
+function chain(s) {
+  const it = s.items, n = it.length, gw = n > 4 ? 14 : 20, w = (344 - (n - 1) * gw) / n, h = s.h || 74, y = (H - h) / 2 + (s.title ? 10 : 0);
+  let o = s.title ? T(180, 24, s.title, { c: 'mut', s: 11, w: 600 }) : '';
+  it.forEach((d, i) => {
+    const x = 8 + i * (w + gw), hi = inc(s.hi, i), cn = Math.floor(w / (n > 4 ? 5.6 : 6.3));
+    o += R(x, y, w, h, hi ? 'hi' : '');
+    const sz = n > 4 ? 10 : 11, l1 = wrap(d.t, cn).length, l2 = d.s ? wrap(d.s, cn + 2).length : 0, h1 = l1 * sz * 1.45, h2 = l2 * 13, tot = h1 + (l2 ? 6 + h2 : 0), top = y + h / 2 - tot / 2;
+    o += ML(x + w / 2, top + h1 / 2, d.t, cn, { s: sz, w: 700, m: d.m, c: hi ? 'ok' : 'ink' });
+    if (d.s) o += ML(x + w / 2, top + h1 + 6 + h2 / 2, d.s, cn + 2, { s: 9, c: 'mut' });
+    if (i < n - 1) o += A(x + w + 3, y + h / 2, x + w + gw - 3, y + h / 2, hi || inc(s.hi, i + 1) ? 'hi' : '');
+  });
+  return o;
+}
+
+/* ---------- أنماط الإرسال ---------- */
+function cast(s) {
+  const ys = [34, 67, 100, 133, 166], rec = s.mode === 'uni' ? [2] : s.mode === 'multi' ? [0, 2, 4] : [0, 1, 2, 3, 4];
+  const lab = { uni: 'إلى جهاز واحد · Unicast', multi: 'إلى مجموعة محددة · Multicast', broad: 'إلى الجميع · Broadcast' }[s.mode];
+  let o = T(180, 16, lab, { s: 11, w: 700, c: 'mut' });
+  o += C(46, 100, 22, 'acc') + T(46, 104, 'مرسل', { s: 10, w: 700, c: 'acc' });
+  ys.forEach((y, i) => {
+    const r = rec.includes(i);
+    if (r) o += A(70, 100, 268, y, 'hi');
+    o += R(272, y - 13, 60, 26, r ? 'hi' : 'dim', 5) + T(302, y + 4, r ? 'يستلم' : 'يتجاهل', { s: 10, w: 600, c: r ? 'ok' : 'mut' });
+    if (!r) o += NO(344, y);
+    else o += OK(344, y);
+  });
+  return o;
+}
+
+/* ---------- أنظمة العد ---------- */
+function numconv(s) {
+  const m = s.m; let o = '';
+  const bitsRow = (bits, n, y, label) => {
+    const cw = Math.min(32, 336 / n), x0 = (W - n * cw) / 2; let sum = [], tot = 0;
+    o += T(180, 20, label, { s: 11, w: 700, c: 'mut' });
+    for (let i = 0; i < n; i++) {
+      const pv = 2 ** (n - 1 - i), on = bits[i] === '1', x = x0 + i * cw;
+      o += T(x + cw / 2, y - 6, pv, { s: 9, m: 1, c: 'mut' });
+      o += R(x + 1, y, cw - 2, 30, on ? 'hi' : '', 4) + T(x + cw / 2, y + 20, bits[i], { s: 14, m: 1, w: 700, c: on ? 'ok' : 'mut' });
+      if (on) { sum.push(pv); tot += pv; }
+    }
+    return { sum, tot };
+  };
+  if (m === 'bin2dec') {
+    const n = s.v.length, r = bitsRow(s.v, n, 52, 'ثنائي ← عشري: اجمع قيم الخانات المضاءة');
+    o += T(180, 118, r.sum.join(' + '), { s: 13, m: 1, w: 600 });
+    o += R(110, 134, 140, 38, 'solid', 8) + T(180, 160, '= ' + r.tot, { s: 20, m: 1, w: 700, c: 'on' });
+  } else if (m === 'dec2bin') {
+    const n = s.n || 8, bits = (+s.v).toString(2).padStart(n, '0'), r = bitsRow(bits, n, 52, 'عشري ← ثنائي: اطرح أكبر قيمة تناسب ثم كرر');
+    o += T(180, 118, s.v + ' = ' + r.sum.join(' + '), { s: 12, m: 1, w: 600 });
+    o += R(60, 134, 240, 38, 'solid', 8) + T(180, 160, bits, { s: 18, m: 1, w: 700, c: 'on' });
+  } else if (m === 'hex2dec') {
+    const d = s.v.split(''), n = d.length, bw = 70, gw = 40, x0 = (W - (n * bw + (n - 1) * gw)) / 2; let tot = 0, parts = [];
+    o += T(180, 20, 'ست عشري ← عشري: كل خانة × 16 أُس موقعها', { s: 11, w: 700, c: 'mut' });
+    d.forEach((c, i) => {
+      const v = parseInt(c, 16), pw = 16 ** (n - 1 - i), x = x0 + i * (bw + gw); tot += v * pw; parts.push(v * pw);
+      o += T(x + bw / 2, 48, '× ' + pw, { s: 12, m: 1, c: 'acc', w: 700 });
+      o += R(x, 56, bw, 44, 'hi') + T(x + bw / 2, 86, c, { s: 26, m: 1, w: 700, c: 'ok' });
+      o += T(x + bw / 2, 118, c + (v > 9 ? ' (' + v + ')' : '') + ' × ' + pw + ' = ' + v * pw, { s: 10, m: 1, c: 'ink' });
+    });
+    o += R(90, 134, 180, 38, 'solid', 8) + T(180, 160, parts.join(' + ') + ' = ' + tot, { s: 15, m: 1, w: 700, c: 'on' });
+  } else if (m === 'dec2hex') {
+    let v = +s.v, rem = [], step = []; o += T(180, 20, 'عشري ← ست عشري: اقسم على 16 واقرأ الباقي (rem) من الأسفل للأعلى', { s: 10.5, w: 700, c: 'mut' });
+    let y = 46;
+    while (v > 0) { const q = Math.floor(v / 16), r = v % 16; rem.unshift(r.toString(16).toUpperCase()); o += R(40, y - 14, 280, 24, '', 5) + T(180, y + 3, `${v} ÷ 16 = ${q}   rem ${r}` + (r > 9 ? ' → ' + r.toString(16).toUpperCase() : ''), { s: 12, m: 1, w: 600 }); v = q; y += 30; }
+    o += R(100, 142, 160, 40, 'solid', 8) + T(180, 169, rem.join(''), { s: 22, m: 1, w: 700, c: 'on' });
+  } else if (m === 'hex2bin') {
+    const d = s.v.split(''), n = d.length, gw = 340 / n, cell = Math.min(24, (gw - 10) / 4);
+    o += T(180, 20, 'ست عشري ← ثنائي: كل خانة = 4 بتات (8-4-2-1)', { s: 11, w: 700, c: 'mut' });
+    let all = [];
+    d.forEach((c, i) => {
+      const b = parseInt(c, 16).toString(2).padStart(4, '0'), cx = 10 + gw * i + gw / 2, x0 = cx - 2 * cell; all.push(b);
+      o += R(cx - 22, 34, 44, 34, 'hi') + T(cx, 59, c, { s: 22, m: 1, w: 700, c: 'ok' });
+      o += A(cx, 70, cx, 86, 'acc');
+      [8, 4, 2, 1].forEach((pv, k) => { o += T(x0 + k * cell + cell / 2, 96, pv, { s: 9, m: 1, c: 'mut' }) + R(x0 + k * cell + 1, 100, cell - 2, 28, b[k] === '1' ? 'hi' : '', 4) + T(x0 + k * cell + cell / 2, 119, b[k], { s: 13, m: 1, w: 700, c: b[k] === '1' ? 'ok' : 'mut' }); });
+    });
+    o += R(30, 142, 300, 40, 'solid', 8) + T(180, 169, all.join(' '), { s: 17, m: 1, w: 700, c: 'on' });
+  }
+  return o;
+}
+
+/* ---------- الطوبولوجيا ---------- */
+function topo(s) {
+  const nd = (x, y, k = '') => C(x, y, 9, k), sw = (x, y, k = 'acc') => R(x - 14, y - 9, 28, 18, k, 4) + `<line x1="${x - 8}" y1="${y - 2}" x2="${x + 8}" y2="${y - 2}" class="ln"/><line x1="${x - 8}" y1="${y + 3}" x2="${x + 8}" y2="${y + 3}" class="ln"/>`;
+  const lab = { star: 'نجمية Star', bus: 'ناقل Bus', ring: 'حلقية Ring', mesh: 'شبكية Mesh', extstar: 'نجمية ممتدة Extended Star', p2p: 'نقطة لنقطة Point-to-Point', hub: 'محوري Hub and Spoke', redundant: 'مسارات متعددة Redundancy', grow: 'شبكة قابلة للتوسع Scalable' }[s.k];
+  let o = T(180, 16, lab, { s: 11, w: 700, c: 'mut' }), p = [];
+  if (s.k === 'star' || s.k === 'grow') {
+    const cx = 180, cy = 108; for (let i = 0; i < 6; i++) { const a = -Math.PI / 2 + i * Math.PI / 3 + Math.PI / 6; p.push([cx + 125 * Math.cos(a), cy + 66 * Math.sin(a)]); }
+    p.forEach((q, i) => { const d = s.k === 'grow' && i > 3; o += L(cx, cy, q[0], q[1], d ? 'dash' : 'hi'); });
+    p.forEach((q, i) => { const d = s.k === 'grow' && i > 3; o += nd(q[0], q[1], d ? 'dim' : '') + (d ? T(q[0], q[1] + 24, '+ جديد', { s: 9, c: 'acc', w: 700 }) : ''); });
+    o += sw(cx, cy);
+  } else if (s.k === 'bus') {
+    o += L(24, 100, 336, 100, 'hi'); [50, 115, 180, 245, 310].forEach((x, i) => { const up = i % 2 === 0; o += L(x, 100, x, up ? 68 : 132) + nd(x, up ? 60 : 140); });
+  } else if (s.k === 'ring') {
+    const cx = 180, cy = 108; for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3; p.push([cx + 100 * Math.cos(a), cy + 66 * Math.sin(a)]); }
+    p.forEach((q, i) => { const n = p[(i + 1) % 6]; o += L(q[0], q[1], n[0], n[1], 'hi'); }); p.forEach(q => o += nd(q[0], q[1]));
+  } else if (s.k === 'mesh') {
+    const cx = 180, cy = 106; for (let i = 0; i < 5; i++) { const a = -Math.PI / 2 + i * 2 * Math.PI / 5; p.push([cx + 100 * Math.cos(a), cy + 72 * Math.sin(a)]); }
+    p.forEach((q, i) => p.forEach((r, j) => { if (j > i) o += L(q[0], q[1], r[0], r[1], 'hi'); })); p.forEach(q => o += nd(q[0], q[1]));
+  } else if (s.k === 'extstar') {
+    o += sw(180, 44, 'hi'); [60, 180, 300].forEach(x => { o += L(180, 53, x, 98, 'hi') + sw(x, 106); [-26, 26].forEach(d => { o += L(x, 115, x + d, 160) + nd(x + d, 168); }); });
+  } else if (s.k === 'p2p') {
+    o += nd(60, 100) + nd(300, 100) + L(69, 100, 291, 100, 'hi') + T(180, 90, 'رابط WAN', { s: 10, c: 'mut' });
+  } else if (s.k === 'hub') {
+    [[50, 56], [310, 56], [50, 160], [310, 160]].forEach(q => o += L(180, 106, q[0], q[1], 'hi') + nd(q[0], q[1])); o += C(180, 106, 17, 'acc') + T(180, 110, 'HQ', { s: 11, w: 700, m: 1, c: 'acc' });
+  } else if (s.k === 'redundant') {
+    o += nd(40, 106) + nd(320, 106); [52, 106, 160].forEach(y => { o += L(49, 106, 160, y, 'hi') + L(200, y, 311, 106, 'hi') + R(160, y - 9, 40, 18, 'acc', 4) + T(180, y + 3.5, 'Router', { s: 8, m: 1, c: 'acc' }); });
+  }
+  return o;
+}
+
+/* ---------- أوضاع IOS ---------- */
+function ios(s) {
+  const lv = [['Switch>', 'User EXEC', 'عرض محدود'], ['Switch#', 'Privileged EXEC', 'كل الأوامر'], ['Switch(config)#', 'Global Config', 'إعدادات الجهاز'], ['Switch(config-if)#', 'Interface / Line', 'إعداد منفذ أو خط']];
+  const cm = ['enable', 'configure terminal', 'interface g0/1'];
+  let o = '';
+  lv.forEach((d, i) => {
+    const y = 6 + i * 48, hi = s.hi === i;
+    o += R(108, y, 244, 34, hi ? 'hi' : '') + T(118, y + 21, d[0], { a: 'start', s: 11.5, m: 1, w: 700, c: hi ? 'ok' : 'ink' });
+    o += T(344, y + 14, d[1], { a: 'end', s: 10, m: 1, c: 'mut' }) + T(344, y + 28, d[2], { a: 'end', s: 11, w: 700, c: hi ? 'ok' : 'ink' });
+    if (i < 3) { o += A(150, y + 35, 150, y + 47, 'acc') + T(160, y + 45, cm[i], { a: 'start', s: 8.5, m: 1, c: 'acc' }); o += A(70, y + 47, 70, y + 35, 'dash') + T(62, y + 45, 'exit', { a: 'end', s: 8.5, m: 1, c: 'mut' }); }
+  });
+  return o;
+}
+
+/* ---------- إطار إيثرنت ---------- */
+function frame(s) {
+  const F = [['pre', 'Preamble', 'مقدمة', '7', 50], ['sfd', 'SFD', 'بداية', '1', 28], ['dst', 'Dest MAC', 'وجهة', '6', 50], ['src', 'Src MAC', 'مصدر', '6', 50], ['type', 'Type', 'نوع', '2', 34], ['data', 'Data', 'بيانات', '46–1500', 60], ['fcs', 'FCS', 'فحص', '4', 38]];
+  const tot = F.reduce((a, f) => a + f[4], 0) + 6 * 3, x0 = (W - tot) / 2; let x = x0, o = T(180, 20, 'مكونات إطار Ethernet (بالبايت)', { s: 11, w: 700, c: 'mut' }); const pos = {};
+  F.forEach(f => {
+    const hi = inc(s.hi, f[0]); pos[f[0]] = x;
+    o += T(x + f[4] / 2, 70, f[3], { s: 9, m: 1, c: 'mut' }) + R(x, 76, f[4], 40, hi ? 'hi' : '', 4);
+    o += T(x + f[4] / 2, 100, f[1].replace(' ', ' ').length > 8 ? f[1].split(' ')[0] : f[1], { s: 8, m: 1, w: 700, c: hi ? 'ok' : 'ink' });
+    o += T(x + f[4] / 2, 134, f[2], { s: 10, w: 600, c: hi ? 'ok' : 'mut' }); x += f[4] + 3;
+  });
+  const a = pos.dst, b = pos.fcs + 38;
+  o += L(a, 152, b, 152, 'acc') + L(a, 148, a, 156, 'acc') + L(b, 148, b, 156, 'acc') + T((a + b) / 2, 172, 'من الوجهة إلى FCS = 64 إلى 1518 بايت', { s: 10.5, w: 700, c: 'acc' });
+  return o;
+}
+
+/* ---------- السويتش ---------- */
+function sw(s) {
+  let o = '';
+  const pc = (x, y, t, hi) => R(x - 26, y - 14, 52, 28, hi ? 'hi' : '', 5) + T(x, y + 4, t, { s: 10, m: 1, w: 700, c: hi ? 'ok' : 'ink' });
+  const sx = (x, y) => R(x - 34, y - 18, 68, 36, 'acc', 6) + T(x, y + 4, 'Switch', { s: 11, m: 1, w: 700, c: 'acc' });
+  if (s.mode === 'learn') {
+    o += T(180, 16, 'السويتش يتعلم من عنوان المصدر (Source) في الإطار الوارد', { s: 10.5, w: 700, c: 'mut' });
+    o += pc(46, 100, 'PC-A', 1) + A(74, 100, 140, 100, 'hi') + T(106, 90, 'src = AA', { s: 9, m: 1, c: 'ok' }) + sx(180, 100) + T(180, 128, 'المنفذ 1', { s: 9, c: 'mut' });
+    o += R(222, 56, 126, 90, '') + T(285, 74, 'MAC Table', { s: 10, m: 1, w: 700, c: 'mut' }) + R(228, 84, 114, 22, 'hi', 4) + T(285, 99, 'AA ← Port 1', { s: 11, m: 1, w: 700, c: 'ok' }) + T(285, 124, 'يُسجَّل المصدر', { s: 10, w: 600 }) + T(285, 138, 'وليس الوجهة', { s: 10, w: 600 });
+    o += A(214, 100, 228, 95, 'acc');
+  } else if (s.mode === 'flood') {
+    o += T(180, 16, 'الوجهة FF:FF:FF:FF:FF:FF = بث شامل', { s: 11, w: 700, c: 'mut', m: 1 });
+    o += pc(46, 100, 'PC-A') + A(74, 100, 140, 100, 'acc') + sx(180, 100);
+    [[300, 44, 'PC-B'], [300, 100, 'PC-C'], [300, 156, 'PC-D']].forEach(q => { o += A(214, 100, 268, q[1], 'hi') + pc(q[0], q[1], q[2], 1); });
+    o += NO(46, 140) + T(46, 164, 'لا يعود للمنفذ', { s: 9, c: 'mut' }) + T(46, 176, 'الوارد منه', { s: 9, c: 'mut' });
+  } else if (s.mode === 'hostdiscard') {
+    o += T(180, 16, 'وجهة الإطار (Unicast) لا تطابق MAC الجهاز', { s: 11, w: 700, c: 'mut' });
+    o += R(20, 70, 110, 56, '', 6) + T(75, 92, 'إطار قادم', { s: 11, w: 700 }) + T(75, 110, 'dst = 00:AA', { s: 10, m: 1, c: 'mut' });
+    o += A(134, 98, 214, 98, 'acc') + R(220, 66, 120, 64, 'bad', 6) + T(280, 88, 'الجهاز', { s: 11, w: 700 }) + T(280, 106, 'MAC = 00:BB', { s: 10, m: 1, c: 'mut' }) + T(280, 122, 'غير مطابق', { s: 10, c: 'bad', w: 700 });
+    o += NO(280, 156) + T(180, 184, 'النتيجة: يُهمَل الإطار (Discard)', { s: 12, w: 700, c: 'bad' });
+  } else if (s.mode === 'hostaccept') {
+    o += T(180, 16, 'الوجهة FF:FF:FF:FF:FF:FF = موجَّه لكل الأجهزة', { s: 11, w: 700, c: 'mut', m: 1 });
+    o += R(20, 70, 110, 56, '', 6) + T(75, 92, 'إطار بث شامل', { s: 11, w: 700 }) + T(75, 110, 'dst = FF:FF…', { s: 10, m: 1, c: 'mut' });
+    o += A(134, 98, 214, 98, 'hi') + R(220, 66, 120, 64, 'hi', 6) + T(280, 92, 'الجهاز', { s: 11, w: 700, c: 'ok' }) + T(280, 112, 'يعالج الإطار', { s: 11, w: 700, c: 'ok' });
+    o += OK(280, 156) + T(180, 184, 'يقبله ويرفعه للطبقة الأعلى', { s: 12, w: 700, c: 'ok' });
+  } else if (s.mode === 'sfct') {
+    const seg = (y, name, hi, parts) => { let x = 24, r = T(180, y - 12, name, { s: 11, w: 700, c: hi ? 'ok' : 'ink' }); parts.forEach(p => { r += R(x, y, p[1], 30, p[2] || (hi ? 'hi' : ''), 4) + T(x + p[1] / 2, y + 19, p[0], { s: 9, m: 1, w: 700, c: p[2] === 'acc' ? 'acc' : (hi ? 'ok' : 'ink') }); x += p[1] + 2; }); return r; };
+    const ct = s.hi === 'ct' || s.hi === 'both', sf = s.hi === 'sf' || s.hi === 'both';
+    o += seg(40, 'Cut-through · يبدأ التمرير بعد MAC الوجهة (أسرع)', ct, [['Dest MAC', 62, 'acc'], ['يمرّر فورًا ← ← ←', 200], ['', 0]].filter(p => p[1]));
+    o += seg(116, 'Store-and-Forward · ينتظر الإطار ويفحص FCS (أدق)', sf, [['استلام الإطار كاملًا', 150], ['FCS ✓', 54, 'acc'], ['ثم يمرّر', 56]]);
+    o += A(24, 176, 336, 176, 'dash') + T(180, 192, 'الزمن', { s: 9, c: 'mut' });
+  }
+  return o;
+}
+
+/* ---------- التغليف ---------- */
+function encap(s) {
+  const h = s.hi || [], all = inc(h, 'all'), g = k => (all || inc(h, k)) ? 'hi' : '';
+  let o = R(8, 10, 344, 180, g('frm'), 8);
+  o += R(12, 16, 62, 20, g('mac') || 'acc', 4) + T(43, 30, 'MAC', { s: 10, m: 1, w: 700, c: 'acc' }) + R(286, 16, 62, 20, g('fcs') || 'acc', 4) + T(317, 30, 'FCS', { s: 10, m: 1, w: 700, c: 'acc' });
+  o += R(80, 16, 200, 156, g('pkt'), 6) + R(84, 20, 52, 18, g('ip') || 'acc', 4) + T(110, 33, 'IP', { s: 10, m: 1, w: 700, c: 'acc' });
+  o += R(88, 44, 184, 106, g('seg'), 6) + R(92, 48, 78, 18, g('port') || 'acc', 4) + T(131, 61, 'TCP · Port', { s: 9.5, m: 1, w: 700, c: 'acc' });
+  o += R(94, 72, 172, 54, g('data'), 5) + T(180, 104, 'Data  البيانات', { s: 12, w: 700 });
+  o += T(180, 142, 'قطعة Segment  ·  L4', { s: 10, w: 600, c: 'mut' }) + T(180, 164, 'حزمة Packet  ·  L3', { s: 10, w: 600, c: 'mut' }) + T(180, 184, 'إطار Frame  ·  L2', { s: 10, w: 600, c: 'mut' });
+  return o;
+}
+
+/* ---------- مقارنة ---------- */
+function versus(s) {
+  let o = '';
+  [['l', 24], ['r', 190]].forEach(([k, x]) => {
+    const d = s[k], hi = s.hi === k || s.hi === 'both';
+    o += R(x, 30, 146, 140, hi ? 'hi' : 'dim', 8) + ML(x + 73, 76, d.t, 14, { s: 16, m: 1, w: 700, c: hi ? 'ok' : 'ink' }) + ML(x + 73, 128, d.d, 20, { s: 10.5, c: hi ? 'ok' : 'mut', w: 600 });
+    if (hi) o += OK(x + 73, 44);
+  });
+  o += C(180, 100, 14, 'acc') + T(180, 104, 'VS', { s: 10, m: 1, w: 700, c: 'acc' });
+  return o;
+}
+
+/* ---------- صح/خطأ ---------- */
+function tf(s) {
+  let o = C(300, 98, 40, s.ok ? 'solid' : 'bad');
+  o += s.ok ? `<path d="M280 98 l14 14 l28-30" class="mkbig"/>` : `<path d="M284 82 l32 32 M316 82 l-32 32" class="mkbig bad"/>`;
+  o += T(300, 160, s.ok ? 'العبارة صحيحة' : 'العبارة خاطئة', { s: 12, w: 700, c: s.ok ? 'ok' : 'bad' });
+  o += ML(120, 62, s.s, 24, { s: 11.5, w: 600, a: 'middle' });
+  if (s.fix) { o += R(14, 110, 212, 56, 'acc', 8) + ML(120, 138, s.fix, 26, { s: 10.5, w: 700, c: 'acc' }); }
+  return o;
+}
+
+/* ---------- ثنائي الاتجاه ---------- */
+function duplex(s) {
+  let o = T(180, 18, s.mode === 'half' ? 'مسار واحد والتناوب في الإرسال · Half-duplex' : 'إرسال واستقبال معًا · Full-duplex', { s: 11, w: 700, c: 'mut' });
+  o += R(20, 70, 56, 60, '') + T(48, 105, 'A', { s: 20, m: 1, w: 700 }) + R(284, 70, 56, 60, '') + T(312, 105, 'B', { s: 20, m: 1, w: 700 });
+  if (s.mode === 'half') { o += A(84, 100, 276, 100, 'acc') + T(180, 88, 'الآن يرسل A', { s: 10, c: 'acc', w: 700 }) + A(276, 120, 84, 120, 'dash') + T(180, 140, 'ثم يرسل B بعد أن ينتهي', { s: 10, c: 'mut' }) + T(180, 176, 'مثل جهاز اللاسلكي (Walkie-talkie)', { s: 11, w: 600 }); }
+  else { o += A(84, 88, 276, 88, 'hi') + A(276, 112, 84, 112, 'hi') + T(180, 150, 'الاتجاهان في نفس اللحظة: لا تصادم', { s: 11, w: 700, c: 'ok' }) + T(180, 176, 'مثل مكالمة هاتفية', { s: 11, w: 600 }); }
+  return o;
+}
+
+/* ---------- الكابلات ---------- */
+function cable(s) {
+  const it = s.items, n = it.length, cw = 340 / n; let o = '';
+  const names = { utp: ['UTP', 'نحاس مجدول بلا حماية'], stp: ['STP', 'نحاس + درع حماية'], coax: ['Coax', 'محوري: BNC / F / N'], fiber: ['Fiber', 'ألياف: نبضات ضوء'], wireless: ['Wireless', 'لاسلكي: موجات'] };
+  it.forEach((k, i) => {
+    const cx = 10 + cw * i + cw / 2, cy = 82, hi = inc(s.hi, i), r = Math.min(34, cw / 2 - 6);
+    if (hi) o += C(cx, cy, r + 8, 'hi');
+    if (k === 'utp' || k === 'stp') {
+      o += C(cx, cy, r, 'jk'); const cols = ['#F08A24', '#3DAA5C', '#3B82C4', '#8B5E3C'];
+      for (let j = 0; j < 4; j++) { const a = j * Math.PI / 2 + Math.PI / 4, px = cx + r * .5 * Math.cos(a), py = cy + r * .5 * Math.sin(a), d = r * .2; o += `<circle cx="${px - d * Math.cos(a + 1.57) * .6}" cy="${py - d * Math.sin(a + 1.57) * .6}" r="${r * .15}" fill="${cols[j]}"/><circle cx="${px + d * Math.cos(a + 1.57) * .6}" cy="${py + d * Math.sin(a + 1.57) * .6}" r="${r * .15}" fill="#fff" stroke="${cols[j]}" stroke-width="1.5"/>`; }
+      if (k === 'stp') o += `<circle cx="${cx}" cy="${cy}" r="${r * .86}" class="shield"/>`;
+    } else if (k === 'coax') { o += C(cx, cy, r, 'jk') + `<circle cx="${cx}" cy="${cy}" r="${r * .78}" class="shield"/>` + `<circle cx="${cx}" cy="${cy}" r="${r * .6}" fill="#E9E4D3"/><circle cx="${cx}" cy="${cy}" r="${r * .2}" fill="#D98B3A"/>`; }
+    else if (k === 'fiber') { o += C(cx, cy, r, 'jk') + `<circle cx="${cx}" cy="${cy}" r="${r * .62}" fill="#CFE6F2" opacity=".85"/><circle cx="${cx}" cy="${cy}" r="${r * .22}" fill="#F7D548"/>` + `<path d="M${cx - r * .1} ${cy} l-${r * .35} -${r * .35} M${cx + r * .1} ${cy} l${r * .35} -${r * .35}" class="ln acc"/>`; }
+    else if (k === 'wireless') { o += `<line x1="${cx}" y1="${cy + r * .8}" x2="${cx}" y2="${cy - r * .2}" class="ln" style="stroke-width:3"/><circle cx="${cx}" cy="${cy - r * .3}" r="4" fill="var(--acc)"/>`; [r * .5, r * .85, r * 1.2].forEach(q => o += `<path d="M${cx - q * .8} ${cy - r * .3 - q * .55} A${q} ${q} 0 0 1 ${cx + q * .8} ${cy - r * .3 - q * .55}" class="ln acc" style="stroke-width:1.8"/>`); }
+    o += T(cx, 140, names[k][0], { s: 12, m: 1, w: 700, c: hi ? 'ok' : 'ink' }) + ML(cx, 160, names[k][1], Math.floor(cw / 6.2), { s: 9.5, c: hi ? 'ok' : 'mut', w: 600 });
+    if (hi) o += OK(cx + r, cy - r);
+  });
+  return o;
+}
+
+/* ---------- التشويش ---------- */
+function wave(x0, x1, cy, amp, f, ph = 0, dec = 0) {
+  let d = ''; for (let x = x0; x <= x1; x += 3) { const a = amp * (1 - dec * (x - x0) / (x1 - x0)); d += (x === x0 ? 'M' : 'L') + x + ' ' + (cy + a * Math.sin((x - x0) * f + ph)).toFixed(1) + ' '; } return d;
+}
+function xtalk(s) {
+  let o = '';
+  if (s.mode === 'xtalk') {
+    o += T(180, 18, 'تسرّب إشارة سلك إلى السلك المجاور · Crosstalk', { s: 11, w: 700, c: 'mut' });
+    o += `<path d="${wave(20, 340, 62, 14, .13)}" class="ln acc"/>` + `<path d="${wave(20, 340, 140, 5, .13, 1)}" class="ln bad" style="opacity:.8"/>`;
+    o += T(180, 92, 'سلك 1: الإشارة الأصلية', { s: 10, c: 'acc', w: 700 }) + T(180, 170, 'سلك 2: ضوضاء متسرّبة', { s: 10, c: 'bad', w: 700 });
+    [36, 324].forEach(x => o += A(x, 80, x, 126, 'dash'));
+  } else if (s.mode === 'twist') {
+    o += T(180, 18, 'لَفّ الأزواج يعكس المجالات فتُلغي بعضها', { s: 11, w: 700, c: 'mut' });
+    o += `<path d="${wave(20, 340, 90, 22, .16)}" class="ln acc" style="stroke-width:3"/><path d="${wave(20, 340, 90, -22, .16)}" class="ln hi" style="stroke-width:3"/>`;
+    o += T(180, 148, 'سلكان ملتفّان = تداخل أقل (Cancellation)', { s: 11, w: 700, c: 'ok' }) + T(180, 170, 'كلما زاد الالتفاف قلّ الـ Crosstalk', { s: 10, c: 'mut' });
+  } else {
+    o += T(180, 18, 'ضعف الإشارة مع طول الكابل · Attenuation', { s: 11, w: 700, c: 'mut' });
+    o += `<path d="${wave(20, 340, 90, 40, .15, 0, .88)}" class="ln acc" style="stroke-width:2.5"/>` + A(30, 160, 330, 160, 'dash') + T(180, 180, 'المسافة', { s: 9, c: 'mut' });
+  }
+  return o;
+}
+
+/* ---------- الأداء ---------- */
+function perf(s) {
+  let o = '';
+  if (s.k === 'latency') {
+    o += T(180, 18, 'زمن الوصول من نقطة لأخرى شاملًا التأخيرات · Latency', { s: 10.5, w: 700, c: 'mut' });
+    o += C(50, 100, 22) + T(50, 104, 'A', { s: 16, m: 1, w: 700 }) + C(310, 100, 22) + T(310, 104, 'B', { s: 16, m: 1, w: 700 }) + A(76, 100, 284, 100, 'acc');
+    o += C(180, 70, 20, 'acc') + `<path d="M180 70 v-11 M180 70 l8 5" class="ln acc"/>` + T(180, 128, 'كم استغرق الوصول؟ = زمن', { s: 11, w: 700 });
+  } else if (s.k === 'throughput') {
+    o += T(180, 18, 'عدد البتات المنقولة خلال مدة معينة · Throughput', { s: 11, w: 700, c: 'mut' });
+    o += R(30, 70, 300, 50, '', 25); for (let i = 0; i < 9; i++) o += C(56 + i * 31, 95, 8, 'solid');
+    o += T(180, 150, 'بتات / ثانية', { s: 13, w: 700, c: 'ok' });
+  } else {
+    o += T(180, 18, 'البيانات المفيدة فقط بعد الترويسات · Goodput', { s: 11, w: 700, c: 'mut' });
+    o += R(30, 70, 300, 50, '', 25); for (let i = 0; i < 9; i++) o += C(56 + i * 31, 95, 8, i % 3 === 2 ? 'dim' : 'solid');
+    o += T(180, 150, 'Goodput < Throughput', { s: 12, m: 1, w: 700, c: 'ok' });
+  }
+  return o;
+}
+
+/* ---------- نطاق الشبكات ---------- */
+function nest(s) {
+  const hi = s.hi; let o = '';
+  o += R(8, 8, 344, 128, hi === 'internet' ? 'hi' : '', 12) + T(180, 26, 'Internet · شبكات عالمية متصلة', { s: 11, w: 700, c: hi === 'internet' ? 'ok' : 'mut' });
+  o += R(40, 38, 280, 90, hi === 'wan' ? 'hi' : '', 10) + T(180, 55, 'WAN · شبكة واسعة بين المدن', { s: 11, w: 700, c: hi === 'wan' ? 'ok' : 'mut' });
+  o += R(94, 68, 172, 52, hi === 'lan' ? 'hi' : '', 8) + T(180, 88, 'LAN', { s: 14, m: 1, w: 700, c: hi === 'lan' ? 'ok' : 'ink' }) + T(180, 107, 'منزل · قسم · مكتب صغير', { s: 10, c: hi === 'lan' ? 'ok' : 'mut', w: 600 });
+  o += R(14, 146, 160, 44, hi === 'intranet' ? 'hi' : '', 8) + T(94, 165, 'Intranet', { s: 12, m: 1, w: 700, c: hi === 'intranet' ? 'ok' : 'ink' }) + T(94, 181, 'موظفو المؤسسة فقط', { s: 10, w: 600, c: hi === 'intranet' ? 'ok' : 'mut' });
+  o += R(186, 146, 160, 44, hi === 'extranet' ? 'hi' : '', 8) + T(266, 165, 'Extranet', { s: 12, m: 1, w: 700, c: hi === 'extranet' ? 'ok' : 'ink' }) + T(266, 181, 'شركاء وموردون بصلاحية', { s: 10, w: 600, c: hi === 'extranet' ? 'ok' : 'mut' });
+  return o;
+}
+
+/* ---------- محاكاة الطرفية ---------- */
+function cmd(s) {
+  const ls = s.lines, h = 34 + ls.length * 19, y0 = Math.max(6, (H - h) / 2); let o = R(8, y0, 344, h, 'term', 8) + `<circle cx="22" cy="${y0 + 14}" r="3.5" fill="#E5534B"/><circle cx="34" cy="${y0 + 14}" r="3.5" fill="#E8B130"/><circle cx="46" cy="${y0 + 14}" r="3.5" fill="#3DAA5C"/>`;
+  o += T(344, y0 + 18, s.title || 'Cisco IOS CLI', { a: 'end', s: 9, m: 1, c: 'tmut' });
+  ls.forEach((l, i) => {
+    const y = y0 + 40 + i * 19;
+    if (l.hi) o += `<rect x="12" y="${y - 12}" width="336" height="18" rx="3" class="tline"/>`;
+    const txt = (l.p || '') + ' ' + (l.c !== undefined ? l.c : l.o), fs = Math.min(10.5, 318 / (txt.length * 0.62)).toFixed(1);
+    if (l.c !== undefined) o += `<text x="18" y="${y}" class="t mono tp" font-size="${fs}" direction="ltr">${E(l.p)}<tspan class="tc"> ${E(l.c)}</tspan></text>`;
+    else if (/[\u0600-\u06FF]/.test(l.o)) o += `<text x="342" y="${y}" class="t ${l.e ? 'te' : 'to'}" font-size="11" text-anchor="start" font-weight="600">${E(l.o)}</text>`;
+    else o += `<text x="18" y="${y}" class="t mono ${l.e ? 'te' : 'to'}" font-size="${fs}" direction="ltr">${E(l.o)}</text>`;
+  });
+  return o;
+}
+
+/* ---------- شبكة بطاقات ---------- */
+function grid(s) {
+  const it = s.items, n = it.length, cols = n <= 3 ? n : (n === 4 ? 2 : 3), rows = Math.ceil(n / cols), gap = 8, ch = (H - 12 - (rows - 1) * gap) / rows; let o = '';
+  it.forEach((d, i) => {
+    const r = Math.floor(i / cols), c = i % cols, inRow = r === rows - 1 && n % cols ? n % cols : cols, cw = (344 - (inRow - 1) * gap) / inRow;
+    const x = 8 + c * (cw + gap) + (inRow < cols ? 0 : 0), y = 6 + r * (ch + gap), hi = inc(s.hi, i);
+    o += R(x, y, cw, ch, hi ? 'hi' : 'dim', 8);
+    const cn = Math.floor(cw / (d.m ? 6 : 6.4));
+    o += ML(x + cw / 2, y + ch * (rows > 1 ? .34 : .36), d.t, cn, { s: rows > 1 ? 11 : 12.5, w: 700, m: d.m, c: hi ? 'ok' : 'ink' });
+    o += ML(x + cw / 2, y + ch * (rows > 1 ? .72 : .72), d.d, cn + 3, { s: rows > 1 ? 9.5 : 10.5, c: hi ? 'ok' : 'mut', w: 600 });
+    if (hi) o += OK(x + cw - 12, y + 12);
+  });
+  return o;
+}
+
+const RENDER = { layers, chain, cast, numconv, topo, ios, frame, sw, encap, versus, tf, duplex, cable, xtalk, perf, nest, cmd, grid };
+function diagram(spec) {
+  const body = RENDER[spec.t](spec);
+  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${E(spec.cap || 'رسم توضيحي')}">${body}</svg>`;
+}
+
+/* ===== بنك الأسئلة: 114 سؤالاً ===== */
+const TOPICS = {
+  proto: 'الطبقات والبروتوكولات', net: 'أنواع الشبكات ومفاهيمها', addr: 'العنونة والبث', sec: 'أمن الشبكات',
+  ios: 'أوامر Cisco IOS', num: 'الأنظمة العددية', media: 'الوسائط والكابلات', eth: 'إيثرنت والسويتشات'
+};
+const Q = [
+q(1,'proto',['TCP','IP','HTTP','Ethernet'],[0],
+ 'This protocol is responsible for guaranteeing the reliable delivery of information.',
+ 'أي بروتوكول مسؤول عن ضمان وصول المعلومات بشكل موثوق؟',
+ 'TCP هو «المراسل المضمون»: يتأكد من الوصول ويعيد الإرسال عند الضياع.',
+ 'TCP يعمل في طبقة النقل ويستخدم أرقام التسلسل والإقرار (ACK) ليضمن وصول كل القطع. أما IP فيوجّه فقط، وHTTP لصفحات الويب، وEthernet للإطارات.',
+ g([['TCP','يضمن التسليم'],['IP','عنونة وتوجيه'],['HTTP','نقل صفحات الويب'],['Ethernet','إطارات على الكابل']],[0],'TCP = الموثوقية')),
+q(2,'proto',['Ethernet, IP, TCP, HTTP','HTTP, TCP, Ethernet, IP','Ethernet, TCP, IP, HTTP','HTTP, Ethernet, IP, TCP'],[0],
+ 'A web client is receiving a response for a web page from a web server. From the perspective of the client, what is the correct order of the protocol stack that is used to decode the received transmission?',
+ 'العميل يستقبل صفحة ويب من الخادم. ما ترتيب البروتوكولات التي يستخدمها لفك الرسالة؟',
+ 'الاستقبال يصعد من الكابل إلى المتصفح: E ثم I ثم T ثم H.',
+ 'عند الاستقبال تُفكّ الطبقات من الأسفل إلى الأعلى: Ethernet (L2) ثم IP (L3) ثم TCP (L4) ثم HTTP (L7)، كأنك تقشّر بصلة من الخارج للداخل.',
+ ch([['Ethernet','L2','m'],['IP','L3','m'],['TCP','L4','m'],['HTTP','L7','m']],[0,1,2,3],'ترتيب فك التغليف','ترتيب الاستقبال من الكابل إلى المتصفح')),
+q(3,'net',['a router','a firewall','a web server','a dsl modem'],[0],
+ 'Which device performs the function of determining the path that messages should take through internetworks?',
+ 'أي جهاز يحدد المسار الذي تسلكه الرسائل عبر الشبكات المترابطة؟',
+ 'الراوتر هو «خريطة الطرق»: يختار الطريق بين الشبكات.',
+ 'الراوتر يقرأ عنوان IP للوجهة ويقرر المسار التالي. الجدار الناري يفلتر، وخادم الويب يقدّم الصفحات، والمودم يحوّل الإشارة.',
+ g([['Router','يحدد المسار'],['Firewall','يفلتر الحركة'],['Web server','يقدّم الصفحات'],['DSL modem','يحوّل الإشارة']],[0],'الراوتر = اختيار المسار')),
+q(4,'addr',['Unicast','Multicast','Broadcast','None of the above'],[1],
+ 'Which delivery method is used to transmit information to one or more end devices, but not all devices on the network?',
+ 'أي أسلوب توصيل يرسل إلى جهاز أو أكثر وليس إلى كل الأجهزة؟',
+ 'Multicast = «مجموعة مختارة»، Broadcast = الكل، Unicast = واحد.',
+ 'الـ Multicast يرسل نسخة واحدة إلى مجموعة أجهزة مشتركة فقط، بينما الـ Broadcast يصل إلى كل أجهزة الشبكة المحلية.',
+ { t: 'cast', mode: 'multi' }),
+q(5,'proto',['Encapsulation','Flow control','Access method','Response timeout'],[3],
+ 'Which method allows a computer to react accordingly when it requests data from a server and the server takes too long to respond?',
+ 'ما الأسلوب الذي يجعل الجهاز يتصرف عندما يتأخر الخادم في الرد؟',
+ 'تأخر الرد؟ تنتهي المهلة (Timeout) ويتصرف الجهاز.',
+ 'الـ Response timeout يحدد المدة التي ينتظرها المرسل قبل أن يعتبر الرد مفقودًا ويعيد المحاولة أو يتوقف.',
+ ch([['طلب البيانات'],['انتظار...','تأخر الخادم'],['انتهت المهلة','Timeout'],['إعادة المحاولة']],[2],'المهلة تحمي من الانتظار الأبدي')),
+q(6,'proto',['application','Transport','Internet','network access'],[1],
+ 'UDP and TCP belong to which layer of the TCP/IP protocol?',
+ 'إلى أي طبقة من نموذج TCP/IP ينتمي UDP وTCP؟',
+ 'TCP وUDP «راكبان» في طبقة النقل.',
+ 'طبقة النقل مسؤولة عن الاتصال بين التطبيقات (أرقام المنافذ)، وبروتوكولاها الأساسيان TCP وUDP.',
+ ly('tcp',[1],'طبقة النقل')),
+q(7,'proto',['HTTP at the application layer','HTML at the application layer','IP at the internet layer','TCP at the transport layer'],[2],
+ 'A device receives a data link frame with data and processes and removes the Ethernet information. What information would be the next to be processed by the receiving device?',
+ 'جهاز استقبل إطارًا وأزال معلومات Ethernet. ما الذي سيُعالج بعد ذلك؟',
+ 'بعد قشر Ethernet يظهر IP مباشرة.',
+ 'فك التغليف يتم بالتسلسل: بعد إزالة ترويسة الطبقة 2 (Ethernet) تأتي ترويسة الطبقة 3 (IP).',
+ ch([['Ethernet','تمت إزالته','m'],['IP','التالي','m'],['TCP','','m'],['HTTP','','m']],[1],'نقشّر الطبقات بالترتيب')),
+q(8,'proto',['Internet','transport','network access','session'],[0],
+ 'What layer is responsible for routing messages through an internetwork in the TCP/IP model?',
+ 'أي طبقة مسؤولة عن توجيه الرسائل عبر الشبكات في نموذج TCP/IP؟',
+ 'طبقة الإنترنت = IP = التوجيه.',
+ 'في TCP/IP تتولى طبقة الإنترنت العنونة المنطقية (IP) واختيار المسار. وهي تقابل طبقة الشبكة (L3) في OSI.',
+ ly('tcp',[2],'الإنترنت = التوجيه')),
+q(9,'proto',['To uniquely label transmitted segments of data for proper reassembly by the receiver','To determine if data is corrupted during transmission','To ensure data flows at an efficient rate between sender receiver','To guarantee delivery of data'],[0],
+ 'What is the purpose of the sequencing function in network communication?',
+ 'ما الغرض من وظيفة التسلسل (Sequencing) في الاتصال؟',
+ 'التسلسل = ترقيم القطع ليعيد المستقبل ترتيبها.',
+ 'القطع قد تصل بترتيب مختلف، فيعطيها المرسل أرقامًا ليعيد المستقبل تجميعها بالترتيب الصحيح. فحص التلف وتنظيم السرعة وضمان التسليم وظائف أخرى.',
+ ch([['قطعة 3'],['قطعة 1'],['قطعة 2'],['إعادة ترتيب','1 ← 2 ← 3']],[3],'وصلت مبعثرة وتُرتَّب بالأرقام')),
+q(10,'proto',['Sequencing','Duplexing','Multiplexing','Segmentation'],[3],
+ 'What is the process of dividing a large data stream into smaller pieces prior to transmission?',
+ 'ما اسم عملية تقسيم تدفق البيانات الكبير إلى أجزاء صغيرة قبل الإرسال؟',
+ 'Segmentation = تقطيع الكعكة قبل إرسالها.',
+ 'التجزئة (Segmentation) تقسّم البيانات الكبيرة إلى قطع يسهل نقلها، ويعاد تجميعها عند الوجهة.',
+ ch([['تدفق بيانات كبير'],['Segmentation','تقسيم','m'],['قطع صغيرة']],[1],'')),
+q(11,'addr',['Source MAC address','Destination port number','Destination MAC address','Destination IP address'],[3],
+ 'Which logical address is used for delivery of data to a remote network?',
+ 'أي عنوان منطقي يُستخدم لتسليم البيانات إلى شبكة بعيدة؟',
+ 'IP = عنوان المدينة (للبعيد)، MAC = عنوان الحي (للمحلي).',
+ 'العنوان المنطقي هو IP. وعنوان IP للوجهة هو ما يستخدمه الراوتر لإيصال الحزمة إلى شبكة أخرى.',
+ { t: 'encap', hi: ['ip'], cap: 'IP في ترويسة الطبقة 3' }),
+q(12,'proto',['Data link layer','Application layer','Transport layer','Presentation layer'],[0],
+ 'At which OSI layer is a source MAC address added to a PDU during the encapsulation process?',
+ 'في أي طبقة OSI يُضاف MAC المصدر أثناء التغليف؟',
+ 'MAC = الطبقة 2 (ربط البيانات).',
+ 'عنوان MAC فيزيائي ويُضاف في ترويسة الإطار على طبقة ربط البيانات (L2).',
+ ly('osi',[5],'الطبقة 2')),
+q(13,'proto',['Formatting','Encoding','Encapsulation','De-encapsulation'],[1],
+ 'What is the process of converting information into the proper form for transmission?',
+ 'ما اسم عملية تحويل المعلومات إلى الشكل المناسب للإرسال؟',
+ 'Encoding = تحويل المعلومة إلى إشارات تسافر.',
+ 'الترميز (Encoding) يحوّل البيانات إلى بتات وإشارات مناسبة للوسط الناقل. أما التغليف فهو إضافة الترويسات.',
+ ch([['معلومات'],['Encoding','ترميز','m'],['إشارات / بتات']],[1],'')),
+q(14,'addr',['Unicast','Multicast','Broadcast','None of the above'],[2],
+ 'What type of communication will send a message to all devices on a local area network?',
+ 'أي نوع اتصال يرسل رسالة إلى كل الأجهزة في الشبكة المحلية؟',
+ 'Broadcast = «مكبّر الصوت» يسمعه الجميع.',
+ 'البث الشامل يصل إلى كل الأجهزة في الشبكة المحلية، وعنوانه في الطبقة 2 هو FF:FF:FF:FF:FF:FF.',
+ { t: 'cast', mode: 'broad' }),
+q(15,'addr',['True','False'],[1],
+ 'True or false? The right-most part of an IP address is used to identify the network that a device belongs to.',
+ 'صح أم خطأ: الجزء الأيمن من عنوان IP يحدد الشبكة التي ينتمي لها الجهاز.',
+ 'الشبكة على اليسار، والجهاز على اليمين.',
+ 'الجزء الأيسر (Network) يحدد الشبكة، والأيمن (Host) يحدد الجهاز داخلها. مثل رمز المدينة ثم رقم البيت.',
+ { t: 'tf', ok: false, s: 'الجزء الأيمن من IP يحدد الشبكة', fix: 'الأيسر = الشبكة · الأيمن = الجهاز (Host)' }),
+q(16,'ios',['Console','Telnet','SSH','AUX'],[2],
+ 'Which secure access method would be the most appropriate in-band access to the IOS over a network connection?',
+ 'ما طريقة الوصول الآمنة الأنسب (داخل النطاق) إلى IOS عبر الشبكة؟',
+ 'SSH = عبر الشبكة ومشفّر. Telnet عبر الشبكة لكن مكشوف.',
+ 'In-band تعني الوصول عبر الشبكة نفسها. Telnet وSSH كلاهما كذلك، لكن SSH وحده مشفّر. Console وAUX وصول خارج النطاق.',
+ g([['Console','خارج النطاق: كابل مباشر'],['Telnet','عبر الشبكة لكن نص مكشوف'],['SSH','عبر الشبكة ومشفّر'],['AUX','خارج النطاق عبر مودم']],[2],'SSH = آمن')),
+q(17,'addr',['True','False'],[0],
+ 'ICMPv6 neighbor solicitation messages are sent as a multicast.',
+ 'رسائل ICMPv6 Neighbor Solicitation تُرسل كـ Multicast.',
+ 'IPv6 بلا Broadcast: كل شيء Multicast.',
+ 'IPv6 ألغى البث الشامل وعوّضه بـ Multicast، ومنها رسائل طلب الجيران (NS) التي تُرسل إلى عنوان Solicited-node multicast.',
+ { t: 'tf', ok: true, s: 'رسائل Neighbor Solicitation في ICMPv6 ترسل Multicast' }),
+q(18,'sec',['Firewall','Virus, worm, or Trojan horse','Zero-day or Zero-hour','Virtual Private Network (VPN)'],[1],
+ 'Which option describes malicious code running on user devices?',
+ 'أي خيار يصف الكود الخبيث الذي يعمل على أجهزة المستخدمين؟',
+ 'الفيروس والدودة والحصان الطروادي = كود خبيث يعيش على جهازك.',
+ 'هذه برامج ضارة تُنفَّذ على الجهاز نفسه. الجدار الناري وVPN أدوات حماية، وZero-day ثغرة لا حل لها بعد.',
+ g([['Firewall','يحجب الوصول'],['Virus / Worm / Trojan','كود خبيث على الأجهزة'],['Zero-day','ثغرة بلا ترقيعة بعد'],['VPN','نفق مشفّر']],[1],'برمجيات خبيثة')),
+q(19,'net',['Hosts','Routers','Servers','Switches'],[1,3],
+ 'Which two devices are intermediary devices?',
+ 'أي جهازين يُعدّان أجهزة وسيطة؟ (اختر اثنين)',
+ 'الوسطاء = الراوتر والسويتش: يوصّلون ولا يبدأون الاتصال.',
+ 'الأجهزة الوسيطة تربط الأجهزة الطرفية وتوجّه البيانات: السويتش والراوتر. أما Hosts وServers فأجهزة طرفية.',
+ g([['Hosts','طرفي'],['Routers','وسيط'],['Servers','طرفي'],['Switches','وسيط']],[1,3],'اختر اثنين')),
+q(20,'ios',['Enable class','Secret class','Enable secret class','Service password-encryption'],[2],
+ 'How is the privileged EXEC mode access secured on a switch?',
+ 'كيف تُحمى كلمة الدخول إلى وضع Privileged EXEC في السويتش؟',
+ 'enable secret = قفل Privileged مشفّر.',
+ 'الأمر enable secret يضع كلمة مرور مشفّرة للدخول إلى وضع الصلاحيات الكاملة. أما service password-encryption فيشفّر كلمات المرور النصية.',
+ cm([{ p: 'Switch>', c: 'enable' }, { p: 'Switch#', c: 'configure terminal' }, { p: 'Switch(config)#', c: 'enable secret class', hi: true }])),
+q(21,'ios',['Interface subconfiguration mode','Global configuration mode','Line console subconfiguration mode','User exec mode'],[1],
+ 'Which IOS mode are you in if the Switch(config)# prompt is displayed?',
+ 'في أي وضع IOS أنت إذا ظهرت الإشارة Switch(config)#؟',
+ 'كلمة (config) وحدها = Global Configuration.',
+ 'عندما تظهر (config) بدون أي اسم إضافي مثل -if أو -line فأنت في وضع الإعداد العام.',
+ { t: 'ios', hi: 2 }),
+q(22,'sec',['Firewall','Virus, worm, or Trojan horse','Zero-day or Zero-hour','Virtual Private Network (VPN)'],[0],
+ 'Which option blocks unauthorized access to your network?',
+ 'أي خيار يمنع الوصول غير المصرّح به إلى شبكتك؟',
+ 'Firewall = حارس البوابة.',
+ 'الجدار الناري يفلتر الحركة الداخلة والخارجة ويمنع غير المصرّح به. بقية الخيارات تهديدات أو نفق مشفّر.',
+ g([['Firewall','يحجب غير المصرّح'],['Virus / Worm / Trojan','تهديد'],['Zero-day','ثغرة جديدة'],['VPN','نفق مشفّر']],[0],'')),
+q(23,'ios',['Interface subconfiguration mode','Global configuration mode','Line console subconfiguration mode','User EXEC mode'],[3],
+ 'Which IOS mode are you in if the Switch> prompt is displayed?',
+ 'في أي وضع IOS أنت إذا ظهرت الإشارة Switch>؟',
+ 'علامة > = وضع المستخدم المحدود.',
+ 'علامة أكبر من (>) تعني User EXEC، وهو وضع عرض محدود الصلاحيات.',
+ { t: 'ios', hi: 0 }),
+q(24,'ios',['Interface subconfiguration mode','Line console subconfiguration mode','Privileged EXEC mode','User EXEC mode'],[2],
+ 'Which IOS mode allows access to all commands and features?',
+ 'أي وضع IOS يسمح بالوصول إلى كل الأوامر والميزات؟',
+ 'علامة # = صلاحيات كاملة (Privileged).',
+ 'وضع Privileged EXEC (علامة #) يتيح كل أوامر العرض والإدارة، ومنه تدخل إلى أوضاع الإعداد.',
+ { t: 'ios', hi: 1 }),
+q(25,'ios',['hostname Sw-Floor-2','host name Sw-Floor-2','name Sw-Floor-2','host Sw-Floor-2'],[0],
+ 'What is the command to assign the name "Sw-Floor-2" to a switch?',
+ 'ما الأمر المناسب لتسمية السويتش Sw-Floor-2؟',
+ 'hostname كلمة واحدة متصلة.',
+ 'يُكتب الأمر في وضع الإعداد العام، وبعده يتغير اسم الجهاز في الإشارة (Prompt) فورًا.',
+ cm([{ p: 'Switch(config)#', c: 'hostname Sw-Floor-2', hi: true }, { p: 'Sw-Floor-2(config)#', c: '' }])),
+q(26,'ios',['To restart the ping process','To cancel the ping process','To exit to a different configuration mode','To allow the user to complete the command'],[1],
+ 'An administrator uses the Ctrl-Shift-6 key combination on a switch after issuing the ping command. What is the purpose of using these keystrokes?',
+ 'مدير استخدم Ctrl-Shift-6 بعد أمر ping. ما الغرض؟',
+ 'Ctrl+Shift+6 = فرامل ping.',
+ 'هذه التركيبة تقاطع العمليات الجارية مثل ping وtraceroute وتوقفها.',
+ cm([{ p: 'Switch#', c: 'ping 192.168.1.1' }, { o: '!!!!!!!!...' }, { o: 'إيقاف العملية بالضغط على Ctrl+Shift+6', e: true, hi: true }, { p: 'Switch#', c: '' }])),
+q(27,'net',['Switches','Intermediary devices','Hosts','Media'],[2],
+ 'Which of the following is the name for all computers connected to a network that participate directly in network communication?',
+ 'ما اسم كل الحواسيب المتصلة بالشبكة والمشاركة مباشرة في الاتصال؟',
+ 'Hosts = الأجهزة الطرفية.',
+ 'الـ Hosts هي الأجهزة التي ترسل وتستقبل الرسائل مباشرة. الوسطاء يوصلون فقط.',
+ g([['Switches','وسيط'],['Intermediary devices','وسطاء'],['Hosts','أجهزة طرفية تشارك مباشرة'],['Media','وسط ناقل']],[2],'')),
+q(28,'sec',['DoS attack','Identity theft','Spyware','Zero-day attack'],[2],
+ 'During a routine inspection, a technician discovered that software that was installed on a computer was secretly collecting data about websites that were visited by users of the computer. Which type of threat is affecting this computer?',
+ 'برنامج مثبّت يجمع سرًّا بيانات عن المواقع التي زارها المستخدمون. ما نوع التهديد؟',
+ 'Spyware = جاسوس صامت يراقب تصفحك.',
+ 'برامج التجسس تجمع معلومات عن نشاط المستخدم دون علمه.',
+ g([['DoS','إغراق الخدمة'],['Identity theft','سرقة الهوية'],['Spyware','تجسس خفي'],['Zero-day','ثغرة جديدة']],[2],'')),
+q(29,'net',['It provides network access for mobile devices.','It is a private network for an organization with LAN and WAN connections.','It provides connections through interconnected global networks.','It is a network based on Ethernet technology.'],[2],
+ 'What is the internet?',
+ 'ما هو الإنترنت؟',
+ 'الإنترنت = شبكة الشبكات العالمية.',
+ 'الإنترنت ليس شبكة خاصة (تلك Intranet)، بل ترابط عالمي لشبكات كثيرة.',
+ { t: 'nest', hi: 'internet' }),
+q(30,'ios',['Secret','Login','Enable secret class','Service password-encryption'],[3],
+ 'Which command encrypts all plaintext passwords access on a switch?',
+ 'أي أمر يشفّر كل كلمات المرور النصية في السويتش؟',
+ 'service password-encryption = شفّر الكل دفعة واحدة.',
+ 'يشفّر كلمات المرور المحفوظة نصًا في ملف الإعدادات. أما enable secret فيحمي وضع Privileged فقط.',
+ cm([{ p: 'Switch(config)#', c: 'service password-encryption', hi: true }, { o: 'كل كلمات المرور النصية تصبح مشفّرة' }])),
+q(31,'net',['Fault tolerance','Scalability','Qos','Security'],[3],
+ 'Confidentiality, integrity, and availability are requirements of which of the four basic characteristics of network architecture?',
+ 'السرية والنزاهة والتوافر من متطلبات أي خاصية معمارية للشبكة؟',
+ 'CIA (سرية، سلامة، توافر) = Security.',
+ 'المتطلبات الثلاثة تُعرف بمثلث الأمن CIA.',
+ g([['Fault tolerance','تحمل الأعطال'],['Scalability','التوسّع'],['QoS','أولوية الحركة'],['Security','سرية · سلامة · توافر']],[3],'')),
+q(32,'net',['Powerline networking','Internet','Intranet','Extranet'],[0],
+ 'What term describes a technology that allows devices to connect to the LAN using an electrical outlet?',
+ 'ما التقنية التي تربط الأجهزة بالشبكة المحلية عبر مقبس الكهرباء؟',
+ 'Powerline = الكهرباء تحمل الشبكة.',
+ 'شبكات Powerline تستخدم أسلاك الكهرباء الموجودة لنقل البيانات.',
+ g([['Powerline','شبكة عبر الكهرباء'],['Internet','شبكات عالمية'],['Intranet','داخلية'],['Extranet','للشركاء']],[0],'')),
+q(33,'net',['Extranet','Intranet','LAN','WAN'],[2],
+ 'Which network infrastructure provides access to users and end devices in a small geographical area, which is typically a network in a department in an enterprise, a home or small business?',
+ 'أي بنية تربط المستخدمين في منطقة جغرافية صغيرة كالقسم أو المنزل؟',
+ 'LAN = «Local»: صغيرة ومحلية.',
+ 'الشبكة المحلية LAN تغطي منطقة صغيرة. الـ WAN تغطي مساحات واسعة.',
+ { t: 'nest', hi: 'lan' }),
+q(34,'addr',['Dotted-binary format','Dotted-decimal format','Dotted-hexadecimal format','Dotted-octal format'],[1],
+ 'What is the structure of an IPv4 address called?',
+ 'ماذا يسمى تنسيق عنوان IPv4؟',
+ 'IPv4 = أرقام عشرية بينها نقاط.',
+ 'مثل 192.168.1.1: أربع خانات عشرية تفصلها نقاط.',
+ g([['Dotted-binary','11000000.10101000…','m'],['Dotted-decimal','192.168.1.1','m'],['Dotted-hex','C0.A8.01.01','m'],['Dotted-octal','300.250.1.1','m']],[1],'')),
+q(35,'net',['DSL','Cellular','Dialup','Satellite'],[1,3],
+ 'Which two internet connection options do not require that physical cables be run to the building? (choose two.)',
+ 'أي خيارين للاتصال بالإنترنت لا يحتاجان كابلات فيزيائية للمبنى؟',
+ 'بلا كابل = Cellular وSatellite.',
+ 'DSL وDial-up يعتمدان على خطوط الهاتف الأرضية. الخلوي والقمر الصناعي لاسلكيان.',
+ g([['DSL','خط هاتف'],['Cellular','لاسلكي'],['Dialup','خط هاتف'],['Satellite','لاسلكي']],[1,3],'')),
+q(36,'ios',['To enable the switch to send broadcast frames to attached PCs','To enable the switch to function as a default gateway','To enable the switch to be managed remotely','To enable the switch to receive frames from attached PCs'],[2],
+ 'Why would a layer 2 switch need an IP address?',
+ 'لماذا يحتاج سويتش الطبقة 2 إلى عنوان IP؟',
+ 'IP للسويتش = للإدارة عن بُعد فقط.',
+ 'السويتش يحوّل الإطارات بعناوين MAC دون IP، لكن العنوان يلزم لإدارته عن بُعد عبر SSH أو Telnet.',
+ cm([{ p: 'Switch(config)#', c: 'interface vlan 1' }, { p: 'Switch(config-if)#', c: 'ip address 192.168.1.2 255.255.255.0', hi: true }, { o: 'الآن تقدر تدخل عليه بـ SSH' }])),
+q(37,'net',['email','on-line purchasing','Video conferencing','wiki'],[2],
+ 'What type of network traffic requires QoS?',
+ 'أي نوع حركة بيانات يحتاج QoS؟',
+ 'الصوت والفيديو لا يحتملان التأخير = QoS.',
+ 'مؤتمرات الفيديو حساسة للتأخير والتقطّع، بينما البريد والويكي يتحمّلان التأخير.',
+ g([['email','يتحمل التأخير'],['on-line purchasing','يتحمل'],['Video conferencing','حساس للتأخير: يحتاج QoS'],['wiki','يتحمل']],[2],'')),
+q(38,'ios',['Branch2!','Floor(15)','HO Floor 17','SwBranch799'],[3],
+ 'Which host name follows the guidelines for naming conventions on Cisco IOS devices?',
+ 'أي اسم جهاز يتبع قواعد التسمية في Cisco IOS؟',
+ 'بلا مسافات وبلا رموز خاصة.',
+ 'يبدأ بحرف، وبلا مسافات، ويُكتفى بالحروف والأرقام والشرطة. لذلك SwBranch799 وحده المقبول.',
+ g([['Branch2!','رمز ! ممنوع'],['Floor(15)','الأقواس ممنوعة'],['HO Floor 17','المسافة ممنوعة'],['SwBranch799','مقبول ✓']],[3],'')),
+q(39,'net',['Extranet','Intranet','LAN','WAN'],[0],
+ 'Which network infrastructure might an organization use to provide secure and safe access to individuals who work for a different organization but require access to the organization\'s data?',
+ 'أي بنية تستخدمها المؤسسة لإعطاء أفراد من جهة أخرى وصولًا آمنًا إلى بياناتها؟',
+ 'Extranet = شبكة مفتوحة للشركاء بصلاحية.',
+ 'الـ Extranet تتيح للشركاء والموردين وصولًا محدودًا وآمنًا. الـ Intranet للموظفين الداخليين فقط.',
+ { t: 'nest', hi: 'extranet' }),
+q(40,'ios',['ROM','RAM','NVRAM','Flash'],[2],
+ 'Which memory location on a Cisco router or switch stores the startup configuration file?',
+ 'أي ذاكرة في راوتر أو سويتش Cisco تحفظ ملف startup-config؟',
+ 'NVRAM = تحفظ الإعدادات حتى بعد الإطفاء.',
+ 'NVRAM لا تفقد محتواها بإطفاء الجهاز. RAM للـ running-config، وFlash لنظام IOS، وROM للإقلاع.',
+ g([['ROM','برنامج الإقلاع'],['RAM','running-config'],['NVRAM','startup-config'],['Flash','نظام IOS']],[2],'')),
+q(41,'net',['An intranet','The internet','An extranet','None of the above'],[0],
+ 'An employee at a branch office is creating a quote for a customer. In order to do this, the employee needs to access confidential pricing information from internal servers at the head office. What type of network would the employee access?',
+ 'موظف في فرع يحتاج أسعارًا سرية من خوادم داخلية في المقر الرئيسي. أي شبكة يستخدم؟',
+ 'Intranet = شبكة داخلية للموظفين.',
+ 'الوصول لخوادم المؤسسة الداخلية من فروعها يتم عبر Intranet.',
+ { t: 'nest', hi: 'intranet' }),
+q(42,'addr',['Four binary numbers between 0 and 1 separated by colons.','Four decimal numbers between 0 and 255 separated by periods','Thirty-two hexadecimal numbers separated by colons','Thirty-two hexadecimal numbers separated by periods'],[1],
+ 'How is an IPv4 address represented?',
+ 'كيف يُمثَّل عنوان IPv4؟',
+ 'أربع خانات عشرية 0–255 بينها نقاط.',
+ 'كل خانة 8 بتات، فتتراوح من 0 إلى 255، وتفصلها نقاط. أما IPv6 فيستخدم الست عشري والنقطتين.',
+ { t: 'versus', l: { t: '192.168.1.10', d: 'أربع خانات عشرية بينها نقاط (IPv4)' }, r: { t: '2001:db8::1', d: 'ست عشري بينها نقطتان (IPv6)' }, hi: 'l' }),
+q(43,'net',['Cloud','BYOD','Quality of service','Converged network'],[0],
+ 'What term describes storing personal files on servers over the internet to provide access anywhere, anytime, and on any device?',
+ 'ما المصطلح لتخزين الملفات على خوادم عبر الإنترنت للوصول إليها في أي مكان وزمان؟',
+ 'Cloud = ملفاتك على سيرفرات الإنترنت.',
+ 'الحوسبة السحابية تتيح الوصول من أي جهاز ومن أي مكان.',
+ g([['Cloud','تخزين عبر الإنترنت'],['BYOD','جهازك الشخصي بالعمل'],['QoS','أولوية الحركة'],['Converged network','صوت وفيديو وبيانات معًا']],[0],'')),
+q(44,'sec',['Implementing a firewall','Installing a wireless network','Installing antivirus software','Implementing an intrusion detection system','Adding a dedicated intrusion prevention device'],[0,2],
+ 'A user is implementing security on a small office network. Which two actions would provide the minimum-security requirements for this network? (choose two.)',
+ 'أي إجراءين يوفران الحد الأدنى من الأمن لشبكة مكتب صغير؟',
+ 'الحد الأدنى للمكتب الصغير: Firewall + Antivirus.',
+ 'الجدار الناري ومضاد الفيروسات أساس الحماية. IDS وIPS أنظمة أكبر للشبكات الكبيرة.',
+ g([['Firewall','أساسي ✓'],['Wireless network','ليس أمنًا'],['Antivirus','أساسي ✓'],['IDS','للشبكات الكبيرة'],['Dedicated IPS','للشبكات الكبيرة']],[0,2],'')),
+q(45,'ios',['Only some aspects of the router configuration can be viewed','The device prompt for this mode ends with the ">" symbol','Interfaces and routing protocols can be configured','All router commands are available'],[0,1],
+ 'Which two statements are true regarding the user EXEC mode? (choose two.)',
+ 'أي عبارتين صحيحتين عن وضع User EXEC؟',
+ 'User EXEC: علامة > + عرض محدود، بلا إعدادات.',
+ 'وضع المستخدم محدود الصلاحيات، تنتهي إشارته بالرمز >، ولا يسمح بإعداد المنافذ أو التوجيه.',
+ cm([{ p: 'Router>', c: 'show version', hi: true }, { o: 'عرض محدود ✓' }, { p: 'Router>', c: 'configure terminal' }, { o: '% Invalid input detected', e: true }])),
+q(46,'media',['Wireless','Fiber-optic cable','Copper cable','Coaxial cable'],[1],
+ 'When data is encoded as pulses of light, which media is being used to transmit the data?',
+ 'عندما تُرمَّز البيانات كنبضات ضوء، أي وسط يُستخدم؟',
+ 'الضوء = ألياف بصرية.',
+ 'الألياف البصرية تنقل البتات كنبضات ضوء، بينما النحاس يستخدم إشارات كهربائية واللاسلكي موجات.',
+ { t: 'cable', items: ['wireless', 'fiber', 'utp', 'coax'], hi: [1] }),
+q(47,'net',['Peer-to-peer','client/server','BYOD','Quality of service'],[0],
+ 'What term describes a network where one computer can be both client and server?',
+ 'ما مصطلح الشبكة التي يكون فيها الحاسوب عميلًا وخادمًا في آن واحد؟',
+ 'Peer-to-peer = الند للند.',
+ 'في الشبكة النظيرة كل جهاز يقدّم ويطلب الخدمات.',
+ { t: 'versus', l: { t: 'Peer-to-Peer', d: 'كل جهاز عميل وخادم معًا' }, r: { t: 'Client/Server', d: 'خادم مخصص وعملاء يطلبون' }, hi: 'l' }),
+q(48,'ios',['Console','Telnet','SSH','AUX'],[0],
+ 'Which access method would be most appropriate if you were in the equipment room with a new switch that needs to be configured?',
+ 'أي طريقة وصول أنسب وأنت في غرفة المعدات أمام سويتش جديد؟',
+ 'سويتش جديد بلا إعدادات = Console بالكابل.',
+ 'الجهاز الجديد لا IP له، لذلك لا تصله الطرق التي تمر عبر الشبكة. Console يتصل مباشرة بكابل.',
+ g([['Console','كابل مباشر ✓'],['Telnet','يحتاج IP'],['SSH','يحتاج IP'],['AUX','عبر مودم']],[0],'')),
+q(49,'addr',['Automatic assignment of an IP address to each host','Remote switch management','Translation of IP addresses to domain names','End-to-end connectivity test'],[0],
+ 'Which functionality is provided by DHCP?',
+ 'ما الوظيفة التي يوفرها DHCP؟',
+ 'DHCP = يوزّع IP تلقائيًا.',
+ 'DHCP يمنح كل جهاز عنوان IP تلقائيًا. الترجمة للأسماء هي DNS، واختبار الاتصال ping.',
+ g([['DHCP','يوزّع IP تلقائيًا'],['SSH / Telnet','إدارة عن بُعد'],['DNS','يترجم الأسماء'],['ping','اختبار الاتصال']],[0],'')),
+q(50,'net',['Fault tolerance','Scalability','Qos','Security'],[2],
+ 'With which type of policy, a router can manage the flow of data and voice traffic, giving priority to voice communications if the network experiences congestion?',
+ 'بأي نوع سياسة يعطي الراوتر أولوية للصوت عند الازدحام؟',
+ 'QoS = أولوية للصوت عند الازدحام.',
+ 'سياسة جودة الخدمة تحدد أي حركة تمر أولًا عند الازدحام، فيأخذ الصوت أولوية.',
+ ch([['بريد'],['ويب'],['صوت','أولوية','']],[2],'الصوت يتجاوز الطابور')),
+q(51,'net',['Fault tolerance','Scalability','Qos','Security'],[0],
+ 'Having multiple paths to a destination is known as redundancy. This is an example of which characteristic of network architecture?',
+ 'تعدد المسارات للوجهة يسمى redundancy. مثال على أي خاصية؟',
+ 'مسارات متعددة = تحمل الأعطال.',
+ 'عند تعطل مسار تستمر الشبكة عبر آخر، وهذا هو تحمل الأعطال.',
+ { t: 'topo', k: 'redundant' }),
+q(52,'net',['Cloud computing','Online collaboration','Bring your own device','Video conferencing'],[2],
+ 'A large corporation has modified its network to allow users to access network resources from their personal laptops and smart phones. Which networking trend does this describe?',
+ 'شركة سمحت للمستخدمين بالوصول لمواردها من حواسيبهم وهواتفهم الشخصية. ما الاتجاه؟',
+ 'BYOD = أحضر جهازك الخاص.',
+ 'Bring Your Own Device يسمح للموظفين باستخدام أجهزتهم الشخصية في شبكة العمل.',
+ g([['Cloud computing','تخزين ومعالجة عبر الإنترنت'],['Online collaboration','عمل جماعي عبر الشبكة'],['BYOD','جهازك الشخصي ✓'],['Video conferencing','اجتماعات مرئية']],[2],'')),
+q(53,'net',['True','False'],[1],
+ 'Physical topology diagrams illustrate devices, port, and the addressing scheme of the network.',
+ 'مخططات الطوبولوجيا الفيزيائية تُظهر الأجهزة والمنافذ ونظام العنونة.',
+ 'الفيزيائي = أين؟ · المنطقي = كيف (IP والمنافذ).',
+ 'الفيزيائي يُظهر أماكن الأجهزة والكابلات، أما المنافذ والعنونة فتظهر في المخطط المنطقي.',
+ { t: 'tf', ok: false, s: 'المخطط الفيزيائي يُظهر المنافذ ونظام العنونة', fix: 'المنافذ والعنونة = المخطط المنطقي' }),
+q(54,'ios',['The entire command, configure terminal, must be used.','The administrator is already in global configuration mode.','The administrator must first enter privileged EXEC mode before issuing the command'],[2],
+ 'Refer to the exhibit. An administrator is trying to configure the switch but receives the error message that is displayed in the exhibit. What is the problem? (ملاحظة من الملف: الإجابة الرابعة غير موجودة)',
+ 'المدير يحاول إعداد السويتش فيظهر خطأ Invalid input. ما المشكلة؟',
+ 'الإشارة > تعني أنك لم تدخل Privileged بعد: اكتب enable.',
+ 'أمر config t يعمل فقط من وضع Privileged EXEC (#). وهو مقبول مختصرًا، فالخطأ ليس في الاختصار.',
+ cm([{ p: 'Switch1>', c: 'config t' }, { o: '^ % Invalid input detected at ^ marker.', e: true }, { p: 'Switch1>', c: 'enable', hi: true }, { p: 'Switch1#', c: 'config t' }, { p: 'Switch1(config)#', c: '' }])),
+q(55,'num',['FE','FA','EA','ED'],[0],
+ 'Which is the hexadecimal equivalent of 254?',
+ 'ما المكافئ الست عشري للعدد 254؟',
+ '254 = 15×16 + 14 = F ثم E = FE.',
+ 'اقسم على 16: الناتج 15 (F) والباقي 14 (E)، فيكون FE. وللتذكر: 255 = FF فـ 254 = FE.',
+ { t: 'numconv', m: 'dec2hex', v: 254 }),
+q(56,'addr',['True','False'],[1],
+ 'The number of binary bits in an IPv4 address is 128.',
+ 'عدد البتات الثنائية في عنوان IPv4 هو 128.',
+ 'IPv4 = 32 بت (4×8). 128 هو لـ IPv6.',
+ 'عنوان IPv4 مكوّن من 4 خانات × 8 بتات = 32 بتًا.',
+ { t: 'tf', ok: false, s: 'عدد بتات IPv4 = 128', fix: 'IPv4 = 32 بت · IPv6 = 128 بت' }),
+q(57,'num',['149','153','168','192'],[0],
+ 'What is the decimal equivalent of the binary number 10010101?',
+ 'ما المكافئ العشري للعدد الثنائي 10010101؟',
+ '128 + 16 + 4 + 1 = 149.',
+ 'اجمع قيم الخانات التي تحمل 1 فقط: 128 و16 و4 و1.',
+ { t: 'numconv', m: 'bin2dec', v: '10010101' }),
+q(58,'addr',['128','32','64','48'],[0],
+ 'How many binary bits exist within an IPv6 address?',
+ 'كم عدد البتات في عنوان IPv6؟',
+ 'IPv6 = 128 بت (8 مجموعات × 16 بت).',
+ 'عنوان IPv6 يتكون من 8 مجموعات، في كل مجموعة 16 بتًا، فالمجموع 128.',
+ { t: 'versus', l: { t: '32 bit', d: 'IPv4: 4 × 8' }, r: { t: '128 bit', d: 'IPv6: 8 × 16' }, hi: 'r' }),
+q(59,'num',['True','False'],[0],
+ 'The hexadecimal equivalent of 202 is CA.',
+ 'المكافئ الست عشري للعدد 202 هو CA.',
+ '202 = 12×16 + 10 = C ثم A = CA.',
+ '12 تساوي C و10 تساوي A، فيكون 202 = CA. العبارة صحيحة.',
+ { t: 'numconv', m: 'dec2hex', v: 202 }),
+q(60,'media',['The distortion of the transmitted messages from signals carried in adjacent wires','The distortion of the network signal from fluorescent lighting','The weakening of the network signal over long cable lengths','The loss of wireless signal over excessive distance from the access point'],[0],
+ 'Which characteristic describes crosstalk?',
+ 'أي وصف ينطبق على Crosstalk؟',
+ 'Crosstalk = تسرّب من سلك مجاور.',
+ 'التسرّب يحدث بين أسلاك متجاورة. تأثير الإضاءة يسمى EMI، والضعف مع المسافة يسمى Attenuation.',
+ { t: 'xtalk', mode: 'xtalk' }),
+q(61,'media',['latency','Throughput','Goodput','crosstalk'],[0],
+ 'What OSI physical layer term describes the amount of time, including delays, for data to travel from one point to another?',
+ 'ما مصطلح الطبقة الفيزيائية لزمن انتقال البيانات بين نقطتين شاملًا التأخيرات؟',
+ 'Latency = كم من الوقت؟ · Throughput = كم من البيانات؟',
+ 'الـ Latency قياس للزمن. أما Throughput وGoodput فقياس لكمية البيانات.',
+ { t: 'perf', k: 'latency' }),
+q(62,'media',['UTP','SPT','Coax','Fiber'],[0],
+ 'Refer to the graphic. What type of cabling is shown?',
+ 'بالرجوع إلى الصورة: ما نوع الكابل المعروض؟ (أسلاك ملتفة بألوان وبدون درع)',
+ 'أسلاك ملونة ملتفة بدون درع = UTP.',
+ 'الصورة تُظهر أزواجًا ملتفة ملونة بلا درع معدني، وهذا هو UTP.',
+ { t: 'cable', items: ['utp', 'stp', 'coax', 'fiber'], hi: [0] }),
+q(63,'proto',['transmitting bits across the local media','Controlling access to media','Performing error detection on received frames','Exchanging frames between nodes over physical network media'],[0],
+ 'What is the purpose of the OSI physical layer?',
+ 'ما الغرض من الطبقة الفيزيائية؟',
+ 'الفيزيائية = نقل البتات عبر الوسط.',
+ 'تحوّل الإطارات إلى بتات (إشارات) وتنقلها. بقية الخيارات تخص طبقة ربط البيانات.',
+ ly('osi',[6],'الطبقة 1')),
+q(64,'media',['True','False'],[1],
+ 'Crosstalk describes the measure of the transfer of bits across a medium over a given period of time.',
+ 'Crosstalk يصف قياس نقل البتات عبر وسط خلال فترة زمنية.',
+ 'هذا تعريف Throughput لا Crosstalk.',
+ 'Crosstalk تداخل بين أسلاك متجاورة. أما قياس عدد البتات في الزمن فهو Throughput.',
+ { t: 'tf', ok: false, s: 'Crosstalk = قياس نقل البتات في فترة زمنية', fix: 'هذا Throughput · Crosstalk تداخل الأسلاك' }),
+q(65,'proto',['encapsulation','encoding','Segmentation','flow control'],[0],
+ 'What process involves placing one PDU inside of another PDU?',
+ 'ما العملية التي تضع وحدة بيانات داخل وحدة أخرى؟',
+ 'Encapsulation = دمية الماتريوشكا: كل طبقة تغلّف السابقة.',
+ 'التغليف يضع كل وحدة بيانات داخل ترويسة الطبقة التي تحتها.',
+ { t: 'encap', hi: ['all'], cap: 'كل طبقة تغلّف التي فوقها' }),
+q(66,'proto',['True','False'],[0],
+ 'UDP protocol functions at the transport layer.',
+ 'بروتوكول UDP يعمل في طبقة النقل.',
+ 'UDP وTCP = طبقة النقل.',
+ 'العبارة صحيحة: UDP أحد بروتوكولي طبقة النقل.',
+ ly('tcp',[1],'UDP في النقل')),
+q(67,'proto',['True','False'],[0],
+ 'Segment is the name assigned to the transport layer PDU.',
+ 'Segment هو اسم وحدة بيانات طبقة النقل.',
+ 'نقل = Segment · شبكة = Packet · ربط = Frame.',
+ 'العبارة صحيحة. الاسم يتغير مع كل طبقة.',
+ ly('osi',[3],'PDU النقل')),
+q(68,'proto',['Transport layer','Data link layer','Network layer','Application layer'],[0],
+ 'At which OSI layer is a destination port number added to a PDU during the encapsulation process?',
+ 'في أي طبقة يُضاف رقم منفذ الوجهة أثناء التغليف؟',
+ 'المنفذ (Port) يُضاف في النقل.',
+ 'أرقام المنافذ تحدد التطبيق المستهدف، وتوضع في ترويسة الـ Segment عند طبقة النقل.',
+ { t: 'encap', hi: ['port'], cap: 'المنفذ في ترويسة النقل' }),
+q(69,'ios',['Exit','end','Ctrl-Z','Ctrl-C'],[0],
+ 'Which command or key combination allows a user to return to the previous level in the command hierarchy?',
+ 'أي أمر أو اختصار يعيد المستخدم إلى المستوى السابق؟',
+ 'exit = خطوة للخلف · end/Ctrl-Z = للقمة.',
+ 'exit يعود بمستوى واحد. end وCtrl-Z يعودان مباشرة إلى Privileged EXEC.',
+ cm([{ p: 'Switch(config-if)#', c: 'exit', hi: true }, { p: 'Switch(config)#', c: 'end' }, { p: 'Switch#', o: '', c: '' }, { o: 'end = قفزة مباشرة إلى Privileged' }])),
+q(70,'ios',['True','False'],[0],
+ 'Shell is the user interface that allows users to request specific tasks from the computer through the CLI or GUI interfaces.',
+ 'الـ Shell هي الواجهة التي تتيح للمستخدم طلب مهام عبر CLI أو GUI.',
+ 'Shell = القشرة بين المستخدم والنواة.',
+ 'العبارة صحيحة: الـ Shell تستقبل الأوامر وتمررها للنواة (Kernel) التي تتعامل مع العتاد.',
+ ch([['المستخدم'],['Shell','CLI / GUI','m'],['Kernel','النواة','m'],['العتاد']],[1],'')),
+q(71,'ios',['It completes the remainder of a partially typed word in a command','It moves the cursor to the beginning of the line','It moves the cursor to the end of the line','It is used to exit the configuration mode and returns to EXEC mode'],[0],
+ 'What function does pressing the Tab key have when entering a command in IOS?',
+ 'ما وظيفة مفتاح Tab أثناء كتابة أمر في IOS؟',
+ 'Tab = إكمال تلقائي.',
+ 'يكمل الجزء الباقي من الكلمة إذا كان الاختصار فريدًا.',
+ cm([{ p: 'Switch#', c: 'conf[Tab]', hi: true }, { p: 'Switch#', c: 'configure' }])),
+q(72,'ios',['The new configuration will be loaded if the switch is restarted.','The new configuration will be stored in flash memory','The current IOS file will be replaced with the newly configured file','The configuration changes will be removed and the original configuration will be restored'],[0],
+ 'After making configuration changes on a Cisco switch, a network administrator issues a copy running-config startup-config command. What is the result of issuing this command?',
+ 'بعد تعديل إعدادات السويتش نفّذ المدير copy running-config startup-config. ما النتيجة؟',
+ 'copy run start = احفظ من RAM إلى NVRAM.',
+ 'تُنسخ الإعدادات الحالية إلى NVRAM، فتُحمَّل عند إعادة تشغيل الجهاز.',
+ ch([['RAM','running-config','m'],['copy run start','','m'],['NVRAM','startup-config','m'],['إعادة التشغيل','تُحمَّل الإعدادات']],[3],'')),
+q(73,'net',['Grows in size without impacting existing users.','Limits the number of affected devices during a failure','A private connection of LANs and WANs that belongs to an organization','Uses existing electrical wiring to connect devices for home networks'],[0],
+ 'Which of the following is the characteristics of a scalable network?',
+ 'أي مما يلي من خصائص الشبكة القابلة للتوسع؟',
+ 'Scalable = تكبر دون أن تتأثر الشبكة الحالية.',
+ 'يمكن إضافة مستخدمين وأجهزة دون إضعاف أداء من هم موجودون.',
+ { t: 'topo', k: 'grow' }),
+q(74,'media',['Designing a cable infrastructure to avoid crosstalk interference','Avoiding sharp bends during installation','Twisting opposing circuit wire pairs together','Requiring proper grounding connections'],[2],
+ 'Which procedure is used to reduce the effect of crosstalk in copper cables?',
+ 'أي إجراء يقلل تأثير crosstalk في كابلات النحاس؟',
+ 'اللفّ يلغي التداخل.',
+ 'لفّ أزواج الأسلاك المتعاكسة معًا يجعل المجالات الكهرومغناطيسية تلغي بعضها.',
+ { t: 'xtalk', mode: 'twist' }),
+q(75,'media',['It is easier to terminate and install than copper cabling','It is usually cheaper than copper cabling','It is able to be installed around sharp bends','It is able to carry signals much farther than copper cabling'],[3],
+ 'What is one advantage of using fiber optic cabling rather than copper cabling?',
+ 'ما ميزة الألياف البصرية على النحاس؟',
+ 'الألياف = أبعد مسافة وأقل تشويش.',
+ 'الضوء يقطع مسافات أطول دون ضعف كبير. لكنها أغلى وأصعب تركيبًا وأقل مرونة.',
+ g([['أسهل تركيبًا','لا · أصعب'],['أرخص','لا · أغلى'],['تنحني بحدّة','لا · هشة'],['أبعد مسافة','نعم ✓']],[3],'')),
+q(76,'media',['Copper','Wireless','Fiber-optic','Wired'],[2],
+ 'Which media uses patterns of light to represent bits?',
+ 'أي وسط يستخدم أنماط الضوء لتمثيل البتات؟',
+ 'الضوء = Fiber.',
+ 'النحاس كهرباء، اللاسلكي موجات، والألياف البصرية ضوء.',
+ { t: 'cable', items: ['utp', 'wireless', 'fiber'], hi: [2] }),
+q(77,'net',['Quality of service','Internet','Intranet','Extranet'],[0],
+ 'What term describes a policy that allows network devices to manage the flow of data to give priority to voice and video?',
+ 'ما المصطلح لسياسة تعطي أولوية للصوت والفيديو؟',
+ 'QoS = جودة الخدمة = أولوية.',
+ 'تحدد ترتيب معالجة الحركة عند الازدحام لتفضيل الصوت والفيديو.',
+ ch([['بيانات عادية'],['QoS','أولوية',''],['صوت وفيديو']],[1],'')),
+q(78,'media',['UTP','STP','MAC','TCP'],[1],
+ 'Which of the following counters EMI and RFI by using shielding techniques and special connectors?',
+ 'أي نوع يقاوم EMI وRFI باستخدام الدرع وموصلات خاصة؟',
+ 'S = Shielded = درع.',
+ 'STP فيه طبقة درع معدني تحجب التداخل، وUTP بلا درع.',
+ { t: 'cable', items: ['utp', 'stp'], hi: [1] }),
+q(79,'num',['168','169','170','171'],[1],
+ 'Which is the decimal equivalent of A9?',
+ 'ما المكافئ العشري لـ A9؟',
+ 'A9 = 10×16 + 9 = 169.',
+ 'A تساوي 10 فتُضرب في 16 وتضاف 9: 160 + 9 = 169.',
+ { t: 'numconv', m: 'hex2dec', v: 'A9' }),
+q(80,'num',['01000111','00011000','01110010','01000110'],[3],
+ 'What is the binary equivalent of the decimal number 70?',
+ 'ما المكافئ الثنائي للعدد العشري 70؟',
+ '70 = 64 + 4 + 2 = 01000110.',
+ 'أكبر قيمة تناسب 70 هي 64، يبقى 6 = 4 + 2.',
+ { t: 'numconv', m: 'dec2bin', v: 70, n: 8 }),
+q(81,'num',['B10','BA','10','64'],[3],
+ 'Which is the hexadecimal equivalent of 100?',
+ 'ما المكافئ الست عشري للعدد 100؟',
+ '100 = 6×16 + 4 = 64 (ست عشري).',
+ '100 ÷ 16 = 6 والباقي 4، فالناتج 64 بالست عشري.',
+ { t: 'numconv', m: 'dec2hex', v: 100 }),
+q(82,'media',['straight-through','Console','Crossover','rollover'],[0],
+ 'Which type of UTP cable is used to connect a PC to a switch port?',
+ 'أي نوع كابل UTP يربط حاسوبًا بمنفذ سويتش؟',
+ 'جهازان مختلفان = مستقيم.',
+ 'الحاسوب والسويتش من نوعين مختلفين فيُستخدم الكابل المستقيم. المتقاطع للأجهزة المتشابهة.',
+ g([['Straight-through','جهاز ↔ وسيط ✓'],['Console','للإدارة'],['Crossover','متشابهان'],['Rollover','Console']],[0],'')),
+q(83,'num',['00100101','00110010','00110101','00100111'],[1],
+ 'What is the binary representation for the decimal number 50?',
+ 'ما التمثيل الثنائي للعدد 50؟',
+ '50 = 32 + 16 + 2.',
+ '32 + 16 = 48 ثم 2 فالمجموع 50.',
+ { t: 'numconv', m: 'dec2bin', v: 50, n: 8 }),
+q(84,'num',['124','125','126','127'],[1],
+ 'Which of the following is the decimal equivalent of 7D?',
+ 'ما المكافئ العشري لـ 7D؟',
+ '7×16 + 13 = 125.',
+ 'D تساوي 13: (7 × 16) + 13 = 112 + 13 = 125.',
+ { t: 'numconv', m: 'hex2dec', v: '7D' }),
+q(85,'num',['1000100110','1000100111','1000101110','1000110110','1010100110'],[0],
+ 'Convert the given decimal number 550 to binary number.',
+ 'حوّل العدد العشري 550 إلى ثنائي.',
+ '550 = 512 + 32 + 4 + 2.',
+ '512 تناسب 550 فيبقى 38 = 32 + 4 + 2.',
+ { t: 'numconv', m: 'dec2bin', v: 550, n: 10 }),
+q(86,'num',['100101111001','110110001011','110001111011','101101111011'],[1],
+ 'Convert the hexadecimal number (D8B) to binary?',
+ 'حوّل العدد الست عشري D8B إلى ثنائي.',
+ 'كل خانة ست عشرية = 4 بتات.',
+ 'D = 1101 و8 = 1000 و B = 1011 فيكون 110110001011.',
+ { t: 'numconv', m: 'hex2bin', v: 'D8B' }),
+q(87,'media',['UTP','STP','Coaxial','Fiber-Optic'],[2],
+ 'Which of the following terminates with BNC, N type and F type connectors?',
+ 'أي كابل ينتهي بموصلات BNC وN وF؟',
+ 'BNC · N · F = Coaxial.',
+ 'هذه موصلات الكابل المحوري المستخدم في الكابل التلفزيوني.',
+ { t: 'cable', items: ['coax', 'utp', 'fiber'], hi: [0] }),
+q(88,'num',['10101011','11011010','10111010','11010101'],[0],
+ 'What is the binary representation of AB?',
+ 'ما التمثيل الثنائي لـ AB؟',
+ 'A = 1010 و B = 1011.',
+ 'A تساوي 10 (1010) وB تساوي 11 (1011).',
+ { t: 'numconv', m: 'hex2bin', v: 'AB' }),
+q(89,'media',['Copper','Wireless','Fiber-optic','Wired'],[1],
+ 'Which media uses patterns of microwaves to represent bits?',
+ 'أي وسط يستخدم أنماط الميكروويف لتمثيل البتات؟',
+ 'ميكروويف = لاسلكي.',
+ 'الوسائط اللاسلكية تنقل البتات كموجات كهرومغناطيسية.',
+ { t: 'cable', items: ['wireless', 'utp', 'fiber'], hi: [0] }),
+q(90,'media',['Rollover','Crossover','Coaxial','Straight-through'],[0],
+ 'What type of cable is used to connect a workstation serial port to a Cisco router console port?',
+ 'أي كابل يربط منفذ تسلسلي في الحاسوب بمنفذ Console للراوتر؟',
+ 'Rollover = كابل Console الأزرق.',
+ 'كابل Rollover مخصص للاتصال بمنفذ Console للإعداد.',
+ g([['Rollover','Console ✓'],['Crossover','متشابهان'],['Coaxial','محوري'],['Straight-through','جهاز ↔ وسيط']],[0],'')),
+q(91,'eth',['1518 bytes','64 bytes','1024 bytes','56 bytes'],[0],
+ 'What is the expected maximum size of an ethernet frame?',
+ 'ما أقصى حجم متوقع لإطار Ethernet؟',
+ 'الأقصى 1518 والأدنى 64.',
+ 'الإطار يتراوح بين 64 و1518 بايت.',
+ { t: 'frame', hi: ['dst', 'src', 'type', 'data', 'fcs'] }),
+q(92,'eth',['An address that reaches a specific group of hosts','An address that reaches every host inside a local subnet','An address that reaches every host in the network','An address that reaches one specific host'],[0],
+ 'What type of address is 01-00-5E-0A-00-02?',
+ 'ما نوع العنوان 01-00-5E-0A-00-02؟',
+ 'يبدأ بـ 01-00-5E = Multicast.',
+ 'هذه البادئة محجوزة لعناوين Multicast في IPv4 على مستوى MAC.',
+ { t: 'cast', mode: 'multi' }),
+q(93,'proto',['It fragments data packets into the MTU size.','It determines the path to forward packets.','It accepts layer 3 packets and encapsulates them into frames.','It provides media access control and performs error detection'],[2,3],
+ 'What are two services performed by the data link layer of the OSI model? (choose two).',
+ 'ما خدمتان تؤديهما طبقة ربط البيانات؟',
+ 'الطبقة 2: إطارات + وصول للوسط + كشف أخطاء.',
+ 'تغلّف حزم L3 في إطارات وتتحكم بالوصول إلى الوسط وتكتشف الأخطاء. اختيار المسار مهمة L3.',
+ ly('osi',[5],'ربط البيانات')),
+q(94,'eth',['Full-duplex','Half-duplex','Simplex','None of the above'],[1],
+ 'Which duplex communication method is used in WLANs?',
+ 'أي طريقة ثنائية الاتجاه تُستخدم في الشبكات اللاسلكية؟',
+ 'WLAN = Half-duplex (بالتناوب).',
+ 'الجهاز اللاسلكي لا يرسل ويستقبل معًا على نفس القناة.',
+ { t: 'duplex', mode: 'half' }),
+q(95,'net',['PAN','LAN','WLAN','WAN'],[3],
+ 'What kind of network would use point-to-point, hub and spoke, or mesh topologies?',
+ 'أي شبكة تستخدم طوبولوجيا نقطة لنقطة أو محوري أو شبكي؟',
+ 'نقطة لنقطة · محوري · شبكي = WAN.',
+ 'هذه طوبولوجيات تربط مواقع بعيدة، أي شبكات WAN.',
+ { t: 'topo', k: 'hub' }),
+q(96,'eth',['The first three bytes are used by the vendor assigned OUI','The ISO is responsible for MAC addresses regulations.','A NIC only needs MAC address if connected to WAN','All of the above'],[0],
+ 'Which statement is true about MAC addresses?',
+ 'أي عبارة صحيحة عن عناوين MAC؟',
+ 'أول 3 بايت = رقم الشركة (OUI).',
+ 'عنوان MAC = 6 بايت: ثلاثة للمصنّع (OUI) وثلاثة تسلسلي للكرت.',
+ { t: 'versus', l: { t: 'أول 3 بايت', d: 'رقم الشركة المصنّعة (OUI)' }, r: { t: 'آخر 3 بايت', d: 'رقم تسلسلي للكرت' }, hi: 'l' }),
+q(97,'eth',['Preamble','Start of the frame delimiter','Frame check sequence','Type'],[2],
+ 'Which part of an Ethernet frame detects errors in the frame?',
+ 'أي جزء في إطار Ethernet يكتشف الأخطاء؟',
+ 'FCS = ختم الفحص في آخر الإطار.',
+ 'الحقل FCS يحوي قيمة CRC تُحسب عند الإرسال وتُقارن عند الاستقبال.',
+ { t: 'frame', hi: ['fcs'] }),
+q(98,'eth',['02-6F-00','FF-00-5E','FF-FF-FF','01-00-5E'],[3],
+ 'What is the special value assigned to the first 24 bits of a multicast MAC address transporting an IPv4 packet?',
+ 'ما القيمة الخاصة لأول 24 بتًا من MAC لـ Multicast يحمل حزمة IPv4؟',
+ '01-00-5E = IPv4 Multicast.',
+ 'تبدأ كل عناوين MAC الخاصة بـ Multicast في IPv4 بهذه القيمة.',
+ g([['02-6F-00','عنوان عادي','m'],['FF-00-5E','غير صحيح','m'],['FF-FF-FF','بث شامل','m'],['01-00-5E','Multicast ✓','m']],[3],'')),
+q(99,'eth',['cut-through switching','store-and-forward switching','Fragment-free switching','Fast-forward switching'],[1],
+ 'Which frame forwarding method receives the entire frame and performs a CRC check to detect errors before forwarding the frame?',
+ 'أي طريقة تحويل تستلم الإطار كاملًا وتفحص CRC قبل التمرير؟',
+ 'Store & Forward = خزّن ثم افحص ثم مرّر.',
+ 'يخزّن الإطار بالكامل ويحسب CRC ويتخلص منه إن كان تالفًا.',
+ { t: 'sw', mode: 'sfct', hi: 'sf' }),
+q(100,'net',['Bus','Star','Ring','Mesh'],[1],
+ 'What type of physical topology can be created by connecting all Ethernet cables to a central device?',
+ 'أي طوبولوجيا فيزيائية تنتج من ربط كل كابلات Ethernet بجهاز مركزي؟',
+ 'جهاز مركزي = Star.',
+ 'كل جهاز يتصل بالسويتش المركزي فيتشكل شكل نجمة.',
+ { t: 'topo', k: 'star' }),
+q(101,'eth',['When a device hears a carrier signal and transmits. A collision cannot occur.','A jamming signal causes only devices that caused the collision to execute a backoff algorithm.','All network devices must listen before transmitting.','Devices involved in a collision get priority to transmit after the backoff period.'],[2],
+ 'Which statement is true about the CSMA/CD access method that is used in Ethernet?',
+ 'أي عبارة صحيحة عن CSMA/CD في Ethernet؟',
+ 'استمع قبل أن تتكلم.',
+ 'كل الأجهزة تستمع للوسط قبل الإرسال. التصادم ممكن، وإشارة التشويش تُسمع من الجميع.',
+ ch([['استمع','Carrier Sense'],['الوسط فارغ؟'],['أرسل','Multiple Access']],[0],'')),
+q(102,'eth',['Cut-off switching','Cut-through switching','Store-and-forward switching','Store-and-restore switching'],[1],
+ 'Which switching method can be implemented using fast-forward switching or fragment-free switching?',
+ 'أي طريقة تحويل يمكن تنفيذها بأسلوبي fast-forward وfragment-free؟',
+ 'Fast-forward وFragment-free = Cut-through.',
+ 'هما نوعان من Cut-through: الأول يمرّر بعد قراءة الوجهة، والثاني بعد أول 64 بايت.',
+ { t: 'sw', mode: 'sfct', hi: 'ct' }),
+q(103,'eth',['The switch forwards it out all ports except the incoming port.','The switch shares the MAC address table entry with any connected switches','The switch does not forward the frame.','The switch sends the frame to a connected router because the destination MAC address is not local'],[0],
+ 'What action will occur if a switch receives a frame with the destination MAC address FF:FF:FF:FF:FF:FF?',
+ 'ماذا يفعل السويتش إذا استقبل إطارًا وجهته FF:FF:FF:FF:FF:FF؟',
+ 'بث شامل = لكل المنافذ ما عدا الوارد.',
+ 'العنوان بث شامل، فيرسله السويتش من كل المنافذ إلا المنفذ الذي جاء منه.',
+ { t: 'sw', mode: 'flood' }),
+q(104,'eth',['Collision detecting','Frame error checking','Faster frame forwarding','Frame forwarding using IPv4 layer 3 and 4 information'],[1],
+ 'Which advantage does the store-and-forward switching method have compared with the cut-through switching method?',
+ 'ما ميزة store-and-forward مقارنة بـ cut-through؟',
+ 'S&F أبطأ لكنه يفحص الأخطاء.',
+ 'ينتظر الإطار كاملًا ويفحص FCS قبل التمرير. الأسرع هو cut-through.',
+ { t: 'sw', mode: 'sfct', hi: 'sf' }),
+q(105,'eth',['Router','Switch','Hub','Repeater'],[1],
+ 'Which network device makes forwarding decisions based on the destination MAC address that is contained in the frame?',
+ 'أي جهاز يتخذ قرار التمرير بناءً على MAC الوجهة داخل الإطار؟',
+ 'Switch = MAC · Router = IP.',
+ 'السويتش يعمل في الطبقة 2 ويقرأ MAC. الراوتر يقرأ IP.',
+ g([['Router','يقرر بـ IP'],['Switch','يقرر بـ MAC ✓'],['Hub','يكرر للجميع'],['Repeater','يقوّي الإشارة']],[1],'')),
+q(106,'eth',['Sequence number','TCP port number','UDP port number','MAC address','IP address'],[3],
+ 'What identifier is used at the data link layer to uniquely identify an Ethernet device?',
+ 'ما المعرّف الذي يميز جهاز Ethernet في طبقة ربط البيانات؟',
+ 'MAC = بصمة كرت الشبكة.',
+ 'عنوان MAC فريد لكل كرت شبكة ويعمل في الطبقة 2.',
+ g([['Sequence number','L4'],['TCP port','L4'],['UDP port','L4'],['MAC','L2 ✓'],['IP','L3']],[3],'')),
+q(107,'eth',['It will accept the frame from the media','It will discard the frame','It will strip off the data-link frame to check the destination IP address','It will forward the frame to the next host'],[1],
+ 'What will a host on an Ethernet network do if it receives a frame with a unicast destination MAC address that does not match its own MAC address?',
+ 'ماذا يفعل الجهاز إذا وصله إطار Unicast لا يطابق MAC الخاص به؟',
+ 'ليس لي؟ أهمله.',
+ 'الجهاز يتجاهل الإطارات الموجهة لغيره ولا يفتحها.',
+ { t: 'sw', mode: 'hostdiscard' }),
+q(108,'eth',['Cut-off switching','Cut-through switching','Store-and-forward switching','Store-and-supply switching'],[1,2],
+ 'What are two methods for switching data between ports on a switch? (choose two.)',
+ 'ما طريقتان لتحويل البيانات بين منافذ السويتش؟',
+ 'طريقتان فقط: Cut-through وStore-and-forward.',
+ 'Cut-through أسرع وS&F أدق، والباقي أسماء غير حقيقية.',
+ { t: 'sw', mode: 'sfct', hi: 'both' }),
+q(109,'eth',['A feature that detects Ethernet cable type','A feature to automatically determine speed and duplex.','A type of cisco switch','An Ethernet connector type'],[0],
+ 'What is auto-MDIX?',
+ 'ما هي ميزة auto-MDIX؟',
+ 'Auto-MDIX = يكتشف نوع الكابل تلقائيًا.',
+ 'تجعل المنفذ يتكيف مع الكابل المستقيم أو المتقاطع. تحديد السرعة هو auto-negotiation.',
+ g([['Auto-MDIX','يكتشف نوع الكابل ✓'],['Auto-negotiation','السرعة والدوبلكس'],['Cisco switch','ليس نوع سويتش'],['Connector','ليس موصلًا']],[0],'')),
+q(110,'eth',['The use of full-duplex capable layer 2 switches.','The virtually unlimited availability of IPv6 addresses','The use of gigabit Ethernet speeds','The use of CSMA/CA'],[0],
+ 'Although CSMA/CD is still a feature of Ethernet, why is it no longer necessary?',
+ 'رغم بقاء CSMA/CD في Ethernet، لماذا لم يعد ضروريًا؟',
+ 'Full-duplex = لا تصادم = لا حاجة لـ CSMA/CD.',
+ 'السويتشات full-duplex تعطي كل جهاز مسارًا مستقلًا فلا تحدث تصادمات.',
+ { t: 'duplex', mode: 'full' }),
+q(111,'eth',['An IP address is added','The logical address is added.','The physical address is added.','The process port number is added.'],[2],
+ 'During the encapsulation process, what occurs at the data link layer for a PC connected to an Ethernet network?',
+ 'ماذا يحدث في طبقة ربط البيانات أثناء التغليف لحاسوب Ethernet؟',
+ 'ربط البيانات = MAC (العنوان الفيزيائي).',
+ 'تُضاف ترويسة وعناوين MAC ثم FCS في الذيل.',
+ { t: 'encap', hi: ['mac', 'fcs'], cap: 'MAC في الترويسة، FCS في الذيل' }),
+q(112,'net',['End devices connect to a central intermediate device, which in turn connects to other central intermediate devices.','End devices are connected together by a bus and each bus connects to a central intermediate device.','Each end system is connected to its respective neighbor via an intermediate device','All end and intermediate devices are connected in a chain to each other.'],[0],
+ 'Which statement describes an extended star topology?',
+ 'أي عبارة تصف الطوبولوجيا النجمية الممتدة؟',
+ 'Extended star = نجوم متصلة بنجمة مركزية.',
+ 'كل مجموعة أجهزة تتصل بسويتش، وهذه السويتشات تتصل بسويتش مركزي.',
+ { t: 'topo', k: 'extstar' }),
+q(113,'eth',['The host will process the frame','The host forwards the frame to the router','The host sends the frame to the switch to update the MAC address table','The host forwards the frame to all other hosts'],[0],
+ 'What action will occur if a host receives a frame with a destination MAC address of FF:FF:FF:FF:FF:FF?',
+ 'ماذا يفعل الجهاز إذا استلم إطارًا وجهته FF:FF:FF:FF:FF:FF؟',
+ 'بث شامل = موجَّه لي أيضًا: أعالجه.',
+ 'العنوان موجه لكل الأجهزة، فيعالج الجهاز الإطار ويرفعه للطبقة الأعلى ولا يمرره لأحد.',
+ { t: 'sw', mode: 'hostaccept' }),
+q(114,'eth',['The destination Layer 2 address of outgoing frames','The source Layer 2 address of incoming frames','The source Layer 3 address of outgoing packets','The destination Layer 3 address of incoming packets'],[1],
+ 'What addressing information is recorded by a switch to build its MAC address table?',
+ 'ما معلومات العنونة التي يسجلها السويتش لبناء جدول MAC؟',
+ 'السويتش يتعلم من «المصدر» الوارد.',
+ 'يقرأ MAC المصدر من الإطار الوارد ويربطه بالمنفذ الذي جاء منه.',
+ { t: 'sw', mode: 'learn' }),
+];
+
+/* ===== تطبيق الصفحة ===== */
+(function () {
+  const CFG = window.CFG, KEY = CFG.key;
+  const $ = (s, r = document) => r.querySelector(s);
+  const st = { mode: 'test', topic: 'all', text: '', unl: false, known: new Set(), pick: {}, rev: new Set() };
+  try { JSON.parse(localStorage.getItem(KEY + '-known') || '[]').forEach(i => st.known.add(i)); } catch (e) {}
+  try { const t = localStorage.getItem(KEY + '-theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+  const save = () => { try { localStorage.setItem(KEY + '-known', JSON.stringify([...st.known])); } catch (e) {} };
+  const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const norm = s => String(s).toLowerCase();
+  const pad = n => String(n).padStart(3, '0');
+  const LET = 'ABCDE';
+  const hasO = x => Array.isArray(x.o) && x.o.length;
+
+  const counts = {}; Q.forEach(x => counts[x.topic] = (counts[x.topic] || 0) + 1);
+
+  function visible() {
+    const t = norm(st.text.trim());
+    return Q.filter(x => (st.topic === 'all' || x.topic === st.topic)
+      && (!st.unl || !st.known.has(x.id))
+      && (!t || norm([x.id, x.en, x.ar, x.tip, x.why, (x.o||[]).join(' '), (x.ans||[]).join(' ')].join(' ')).includes(t)));
+  }
+  const isRevealed = x => st.mode === 'review' || st.rev.has(x.id);
+  const sameSet = (a, b) => a.length === b.length && a.every(v => b.includes(v));
+
+  function card(x) {
+    const rev = isRevealed(x), pk = st.pick[x.id] || [], test = st.mode === 'test';
+    const opts = !hasO(x) ? '' : x.o.map((t, i) => {
+      const ok = x.a.includes(i), picked = pk.includes(i);
+      let cls = 'op'; if (rev && ok) cls += ' is-ok'; else if (rev && picked) cls += ' is-no'; else if (picked) cls += ' pick';
+      const stt = rev ? (ok ? 'صحيحة' : (picked ? 'خطأ' : '')) : '';
+      return `<li><button type="button" class="${cls}" data-id="${x.id}" data-i="${i}" ${(!test || rev) ? 'disabled' : ''}><span class="jack">${LET[i]}</span><span class="tx">${esc(t)}</span><span class="st">${stt}</span></button></li>`;
+    }).join('');
+    let verdict = '';
+    if (test && rev && pk.length && x.a) verdict = sameSet(pk, x.a) ? '<span class="verdict good">إجابتك صحيحة</span>' : '<span class="verdict badv">إجابتك غير صحيحة، راجع الخلاصة</span>';
+    const multi = (x.a||[]).length > 1 ? ` · اختر ${x.a.length}` : '';
+    const known = st.known.has(x.id);
+    return `<article class="u ${rev ? 'rev' : 'veil'}" id="q${x.id}" data-known="${known ? 1 : 0}">
+      <div class="ear"><div class="no"><small>${CFG.q || 'Q'}</small>${pad(x.id)}</div><i class="led" title="${known ? 'محفوظ' : 'غير محفوظ'}"></i></div>
+      <div class="body">
+        <header class="qh"><span class="topic">${TOPICS[x.topic]}${multi}</span>
+          <p class="q-en" dir="ltr">${esc(x.en)}</p><p class="q-ar">${esc(x.ar)}</p></header>
+        <div class="cols">
+          <div class="lcol">${hasO(x) ? `<ul class="opts" style="list-style:none;margin:0;padding:0;display:grid;gap:8px">${opts}</ul>` : `<div class="ans"><span class="lab">الإجابة الصحيحة</span><div class="chs">${x.ans.map(a => `<span class="ch" dir="ltr">${esc(a)}</span>`).join('')}</div></div>`}${x.note ? `<div class="note"><b>تنبيه:</b> ${esc(x.note)}</div>` : ''}</div>
+          <figure class="dg"><div class="screen">${diagram(x.d)}<div class="veil-note"><span>يظهر الرسم بعد الإجابة</span></div></div>${x.d.cap ? `<figcaption>${esc(x.d.cap)}</figcaption>` : ''}</figure>
+        </div>
+        <div class="tip"><span class="tag">خلاصة ذهنية</span><p>${esc(x.tip)}</p></div>
+        <p class="why"><b>الشرح:</b> ${esc(x.why)}</p>
+        <div class="foot">
+          ${test && !rev ? `<button type="button" class="btn primary" data-act="reveal" data-id="${x.id}">أظهر الإجابة</button>` : ''}
+          ${test && rev ? `<button type="button" class="btn" data-act="retry" data-id="${x.id}">أعد المحاولة</button>` : ''}
+          <button type="button" class="btn learn" data-act="learn" data-id="${x.id}" aria-pressed="${known}"><i></i>${known ? 'حفظتها' : 'علّمها كمحفوظة'}</button>
+          ${verdict}
+        </div>
+      </div></div></article>`;
+  }
+
+  function stats() {
+    const n = st.known.size, tot = Q.length;
+    $('#mKnown').textContent = n; $('#mBar').style.width = (n / tot * 100) + '%'; $('#mTot').textContent = tot;
+    const v = visible();
+    let ro = `المعروض <b>${v.length}</b> من ${tot}`;
+    if (st.mode === 'test') {
+      const ans = Q.filter(x => hasO(x) && st.rev.has(x.id) && (st.pick[x.id] || []).length), okc = ans.filter(x => sameSet(st.pick[x.id], x.a)).length;
+      ro += ` · نتيجتك <b>${okc}</b> / ${ans.length}`;
+    }
+    $('#readout').innerHTML = ro;
+  }
+
+  function chips() {
+    const all = [['all', 'الكل', Q.length], ...Object.keys(TOPICS).map(k => [k, TOPICS[k], counts[k] || 0])];
+    $('#chips').innerHTML = all.map(([k, t, c]) => `<button type="button" class="chip" data-topic="${k}" aria-pressed="${st.topic === k}">${t}<em>${c}</em></button>`).join('');
+  }
+
+  function render() {
+    const v = visible();
+    $('#list').innerHTML = v.length ? v.map(card).join('') : '<div class="empty">لا توجد أسئلة مطابقة. غيّر البحث أو المحور.</div>';
+    document.querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === st.mode));
+    $('#unl').setAttribute('aria-pressed', st.unl);
+    chips(); stats();
+  }
+
+  function rerenderCard(id) {
+    const x = Q.find(z => z.id === id), el = $('#q' + id); if (!x || !el) return render();
+    el.outerHTML = card(x); stats();
+  }
+
+  document.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.mode) { st.mode = b.dataset.mode; st.rev.clear(); st.pick = {}; render(); return; }
+    if (b.dataset.topic) { st.topic = b.dataset.topic; render(); return; }
+    if (b.id === 'unl') { st.unl = !st.unl; render(); return; }
+    if (b.id === 'theme') {
+      const cur = document.documentElement.dataset.theme, dark = cur ? cur === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+      const nx = dark ? 'light' : 'dark'; document.documentElement.dataset.theme = nx; try { localStorage.setItem(KEY + '-theme', nx); } catch (er) {} return;
+    }
+    if (b.id === 'top') { scrollTo({ top: 0 }); return; }
+    const id = +b.dataset.id; if (!id) return;
+    const x = Q.find(z => z.id === id);
+    if (b.dataset.act === 'learn') { st.known.has(id) ? st.known.delete(id) : st.known.add(id); save(); if (st.unl) render(); else rerenderCard(id); return; }
+    if (b.dataset.act === 'reveal') { st.rev.add(id); rerenderCard(id); return; }
+    if (b.dataset.act === 'retry') { st.rev.delete(id); delete st.pick[id]; rerenderCard(id); return; }
+    if (b.classList.contains('op') && st.mode === 'test' && !st.rev.has(id) && x.a) {
+      const i = +b.dataset.i, pk = st.pick[id] || [];
+      if (x.a.length === 1) st.pick[id] = [i];
+      else st.pick[id] = pk.includes(i) ? pk.filter(v => v !== i) : [...pk, i];
+      if (st.pick[id].length === x.a.length) st.rev.add(id);
+      rerenderCard(id);
+    }
+  });
+  $('#search').addEventListener('input', e => { st.text = e.target.value; render(); });
+
+  /* وضع الأسئلة المتعددة الإجابات: تمثيل نصي للعدد */
+  /* LEDs في الواجهة */
+  $('#leds').innerHTML = Array.from({ length: 24 }, (_, i) => `<i class="${i % 7 === 3 ? 'o' : (i % 3 === 0 || i % 5 === 1) ? 'on' : ''}"></i>`).join('');
+  render();
+})();
+</script></body></html>

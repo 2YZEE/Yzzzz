@@ -1,0 +1,1138 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>التقييمات الذاتية</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+Arabic:wght@400;500;600;700;800&family=Tajawal:wght@400;500;600;700;800&display=swap">
+<style>
+/* Layout concept: صفحة تشبه خزانة شبكات (Rack). كل سؤال وحدة 1U بأذنين ومنافذ LED، والإجابة الصحيحة تُضيء بالأخضر. */
+:root {
+  --bg: #EAF0F6; --panel: #FFFFFF; --ink: #0F2236; --mut: #566B80; --line: #D0DAE5;
+  --d-box: #F3F6FA; --d-line: #8FA2B5;
+  --ok: #17A866; --ok-solid: #0E8C52; --ok-ink: #0A733F; --ok-soft: #DCF5E7;
+  --acc: #EE7D1D; --acc-ink: #A9500A; --acc-soft: #FEEBD7; --acc-line: #F2B982;
+  --blue: #2E6FB3; --bad: #D0393B; --bad-soft: #FBE2E0;
+  --grid: rgba(15,34,54,.045);
+  --rack: #0F2236; --rack-2: #17314C; --rack-ink: #E8EEF5; --rack-mut: #9DB2C7;
+  --shadow: 0 1px 0 rgba(15,34,54,.04), 0 10px 28px -16px rgba(15,34,54,.35);
+  --f-disp: 'Noto Sans Arabic', 'Noto Sans Arabic', system-ui, sans-serif;
+  --f-body: 'Noto Sans Arabic', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --f-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #08121D; --panel: #0F1F31; --ink: #E6EDF5; --mut: #91A4B8; --line: #223850;
+    --d-box: #15283C; --d-line: #4A6480;
+    --ok: #2BD485; --ok-solid: #14995A; --ok-ink: #5DE3A5; --ok-soft: #0D3A29;
+    --acc: #FF9A3D; --acc-ink: #FFB46B; --acc-soft: #38240F; --acc-line: #7C4A1D;
+    --blue: #5AA2E6; --bad: #FF6F6F; --bad-soft: #3A1A1D;
+    --grid: rgba(180,210,240,.045);
+    --rack: #0B1827; --rack-2: #132A42;
+    --shadow: 0 1px 0 rgba(0,0,0,.3), 0 14px 30px -18px rgba(0,0,0,.8);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #08121D; --panel: #0F1F31; --ink: #E6EDF5; --mut: #91A4B8; --line: #223850;
+  --d-box: #15283C; --d-line: #4A6480;
+  --ok: #2BD485; --ok-solid: #14995A; --ok-ink: #5DE3A5; --ok-soft: #0D3A29;
+  --acc: #FF9A3D; --acc-ink: #FFB46B; --acc-soft: #38240F; --acc-line: #7C4A1D;
+  --blue: #5AA2E6; --bad: #FF6F6F; --bad-soft: #3A1A1D;
+  --grid: rgba(180,210,240,.045);
+  --rack: #0B1827; --rack-2: #132A42;
+  --shadow: 0 1px 0 rgba(0,0,0,.3), 0 14px 30px -18px rgba(0,0,0,.8);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 150px; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.65;
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 28px 28px; padding-inline: 16px; padding-block: 18px 60px;
+}
+.wrap { max-width: 1160px; margin-inline: auto; }
+button { font: inherit; color: inherit; cursor: pointer; }
+:focus-visible { outline: 3px solid var(--acc); outline-offset: 2px; border-radius: 6px; }
+
+/* ===== الواجهة العلوية: وحدة Rack ===== */
+.rack { position: relative; overflow: hidden; background: linear-gradient(180deg, var(--rack-2), var(--rack)); color: var(--rack-ink);
+  border-radius: 14px; border: 1px solid #2A4966; box-shadow: var(--shadow); padding: 28px clamp(20px, 4vw, 44px) 26px; }
+.rack::before, .rack::after { content: ""; position: absolute; top: 0; bottom: 0; width: 22px; background: repeating-linear-gradient(180deg, transparent 0 28px, rgba(255,255,255,.07) 28px 30px); }
+.rack::before { inset-inline-start: 0; border-inline-end: 1px solid rgba(255,255,255,.08); }
+.rack::after { inset-inline-end: 0; border-inline-start: 1px solid rgba(255,255,255,.08); }
+.rack-in { position: relative; z-index: 1; padding-inline: 14px; display: grid; gap: 14px; }
+.leds { display: flex; gap: 7px; flex-wrap: wrap; }
+.leds i { width: 9px; height: 9px; border-radius: 50%; background: #1E3A55; box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); }
+.leds i.on { background: #2BD485; box-shadow: 0 0 8px #2BD485; animation: blink 2.4s infinite; }
+.leds i.o { background: #FF9A3D; box-shadow: 0 0 8px #FF9A3D; animation: blink 3.1s infinite .6s; }
+.leds i:nth-child(3n) { animation-delay: .4s; } .leds i:nth-child(5n) { animation-delay: 1.1s; }
+@keyframes blink { 0%, 80%, 100% { opacity: 1 } 90% { opacity: .25 } }
+.eyebrow { font-family: var(--f-mono); font-size: 12px; letter-spacing: .08em; color: var(--rack-mut); margin: 0; direction: ltr; text-align: start; }
+h1 { font-family: var(--f-disp); font-weight: 700; font-size: clamp(40px, 8vw, 76px); line-height: 1.05; margin: 0; letter-spacing: 0; text-wrap: balance; }
+h1 span { color: #FF9A3D; }
+.lead { margin: 0; max-width: 56ch; color: #C4D2E0; font-size: clamp(15px, 2vw, 18px); }
+.meters { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 4px; }
+.meter { min-width: 130px; padding: 10px 14px; border-radius: 8px; background: rgba(0,0,0,.28); border: 1px solid rgba(255,255,255,.1); }
+.meter b { display: block; font-family: var(--f-mono); font-size: 26px; font-weight: 600; line-height: 1.1; color: #7CF0B8; font-variant-numeric: tabular-nums; }
+.meter small { color: var(--rack-mut); font-size: 12px; }
+.meter.wide { flex: 1 1 240px; }
+.bar { height: 8px; border-radius: 4px; background: rgba(255,255,255,.1); margin-top: 8px; overflow: hidden; }
+.bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #2BD485, #7CF0B8); transition: width .5s ease; }
+.cables { position: absolute; inset-inline-end: -10px; top: 0; height: 100%; width: min(40%, 460px); opacity: .55; pointer-events: none; z-index: 0; -webkit-mask-image: linear-gradient(to right, #000 45%, transparent); mask-image: linear-gradient(to right, #000 45%, transparent); }
+.cables path { fill: none; stroke-width: 7; stroke-linecap: round; }
+
+/* ===== شريط الأدوات ===== */
+.bar-tools { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; margin-top: 16px; padding: 12px; border-radius: 12px;
+  background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow); display: grid; gap: 10px; }
+.bar-tools > * { min-width: 0; }
+.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; min-width: 0; }
+.chips { max-width: 100%; }
+.search { flex: 1 1 220px; min-width: 0; position: relative; }
+.search input { width: 100%; font: inherit; color: var(--ink); background: var(--d-box); border: 1px solid var(--line); border-radius: 9px; padding: 9px 38px 9px 12px; }
+.search svg { position: absolute; inset-inline-start: auto; right: 11px; top: 50%; transform: translateY(-50%); width: 17px; height: 17px; stroke: var(--mut); fill: none; stroke-width: 2; }
+.seg { display: inline-flex; background: var(--d-box); border: 1px solid var(--line); border-radius: 9px; padding: 3px; gap: 3px; }
+.seg button { border: 0; background: transparent; padding: 6px 14px; border-radius: 7px; font-weight: 600; color: var(--mut); }
+.seg button[aria-pressed="true"] { background: var(--rack); color: #fff; }
+.tgl { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line); background: var(--d-box); border-radius: 9px; padding: 7px 12px; font-weight: 600; color: var(--mut); }
+.tgl[aria-pressed="true"] { color: var(--ink); border-color: var(--acc); background: var(--acc-soft); }
+.tgl i { width: 9px; height: 9px; border-radius: 50%; background: var(--d-line); }
+.tgl[aria-pressed="true"] i { background: var(--acc); box-shadow: 0 0 6px var(--acc); }
+.chips { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
+.chip { flex: none; border: 1px solid var(--line); background: var(--d-box); border-radius: 999px; padding: 5px 13px; font-size: 13px; font-weight: 600; color: var(--mut); white-space: nowrap; }
+.chip em { font-style: normal; font-family: var(--f-mono); font-size: 11px; opacity: .8; margin-inline-start: 6px; }
+.chip[aria-pressed="true"] { background: var(--ok-solid); border-color: var(--ok-solid); color: #fff; }
+.readout { margin-inline-start: auto; font-family: var(--f-mono); font-size: 13px; color: var(--mut); font-variant-numeric: tabular-nums; }
+.readout b { color: var(--ink); }
+.iconbtn { width: 38px; height: 38px; display: grid; place-items: center; border: 1px solid var(--line); background: var(--d-box); border-radius: 9px; }
+.iconbtn svg { width: 18px; height: 18px; stroke: var(--ink); fill: none; stroke-width: 2; }
+
+/* ===== البطاقات ===== */
+.list { display: grid; gap: 22px; margin-top: 22px; }
+.u { display: grid; grid-template-columns: 78px minmax(0, 1fr); background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
+.ear { background: linear-gradient(180deg, var(--rack-2), var(--rack)); color: var(--rack-ink); display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 16px 6px; border-inline-end: 1px solid rgba(255,255,255,.1); position: relative; }
+.ear::before, .ear::after { content: ""; position: absolute; inset-inline: 0; margin-inline: auto; width: 10px; height: 10px; border-radius: 50%; background: #0A1623; box-shadow: inset 0 0 0 2px #3A5776; }
+.ear::before { top: 8px; } .ear::after { bottom: 8px; }
+.ear .no { margin-top: 14px; font-family: var(--f-mono); font-weight: 600; font-size: 22px; letter-spacing: .02em; font-variant-numeric: tabular-nums; direction: ltr; }
+.ear .no small { display: block; font-size: 11px; font-weight: 500; color: var(--rack-mut); letter-spacing: .12em; text-align: center; }
+.ear .led { width: 12px; height: 12px; border-radius: 50%; background: #20405E; box-shadow: inset 0 0 0 1px rgba(255,255,255,.1); }
+.u[data-known="1"] .ear .led { background: #2BD485; box-shadow: 0 0 10px #2BD485; }
+.body { padding: 16px clamp(14px, 2.4vw, 24px) 16px; display: grid; gap: 14px; min-width: 0; }
+.qh { display: grid; gap: 6px; }
+.topic { font-size: 12px; font-weight: 700; color: var(--acc-ink); letter-spacing: .02em; display: flex; gap: 8px; align-items: center; }
+.topic::before { content: ""; width: 18px; height: 3px; border-radius: 2px; background: var(--acc); }
+.q-en { margin: 0; font-size: 15.5px; font-weight: 500; direction: ltr; text-align: left; color: var(--ink); font-family: var(--f-body); }
+.q-ar { margin: 0; color: var(--mut); font-size: 14px; font-weight: 500; }
+.cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr); gap: 18px; align-items: start; }
+.opts { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.op { width: 100%; display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 10px; align-items: center; text-align: start; padding: 9px 12px; border-radius: 10px;
+  background: var(--d-box); border: 1px solid var(--line); direction: ltr; transition: border-color .15s, background .15s; }
+.op .jack { width: 24px; height: 24px; border-radius: 6px; background: var(--panel); border: 1px solid var(--d-line); display: grid; place-items: center; font-family: var(--f-mono); font-size: 12px; font-weight: 600; color: var(--mut); }
+.op .tx { font-size: 14px; line-height: 1.45; text-align: left; overflow-wrap: anywhere; }
+.op .st { font-size: 11.5px; font-weight: 700; font-family: var(--f-body); direction: rtl; }
+button.op:not([disabled]):hover { border-color: var(--acc); }
+.op[disabled] { color: inherit; opacity: 1; cursor: default; }
+.rev .op { opacity: .62; }
+.rev .op.is-ok { opacity: 1; background: var(--ok-soft); border-color: var(--ok); box-shadow: 0 0 0 1px var(--ok), 0 0 18px -4px var(--ok); }
+.rev .op.is-ok .jack { background: var(--ok); border-color: var(--ok); color: #04210F; }
+.rev .op.is-ok .st { color: var(--ok-ink); }
+.rev .op.is-no { opacity: 1; background: var(--bad-soft); border-color: var(--bad); }
+.rev .op.is-no .st { color: var(--bad); }
+.op.pick { border-color: var(--acc); background: var(--acc-soft); }
+.op.pick .jack { background: var(--acc); border-color: var(--acc); color: #2A1500; }
+.dg { margin: 0; display: grid; gap: 8px; min-width: 0; }
+.screen { position: relative; border: 1px solid var(--line); border-radius: 10px; background: var(--panel);
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px); background-size: 18px 18px; padding: 6px; overflow: hidden; }
+.screen svg { display: block; width: 100%; height: auto; }
+.dg figcaption { font-size: 12.5px; color: var(--mut); text-align: center; }
+.veil .screen svg, .veil .tip p { filter: blur(9px); opacity: .55; user-select: none; }
+.veil-note { position: absolute; inset: 0; display: none; place-items: center; z-index: 2; }
+.veil .veil-note { display: grid; }
+.veil-note span { background: var(--rack); color: #fff; font-weight: 600; font-size: 13px; padding: 6px 14px; border-radius: 999px; }
+.tip { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 14px; align-items: center; padding: 11px 14px; border-radius: 10px; background: var(--acc-soft); border: 1px dashed var(--acc-line); }
+.tip .tag { background: var(--acc); color: #2A1500; font-weight: 700; font-size: 12.5px; padding: 5px 12px 5px 14px; clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 8px 50%); white-space: nowrap; }
+.tip p { margin: 0; font-weight: 600; font-size: 15.5px; color: var(--ink); }
+.why { margin: 0; color: var(--mut); font-size: 14px; }
+.why b { color: var(--ink); }
+.foot { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.btn { border: 1px solid var(--line); background: var(--d-box); border-radius: 9px; padding: 7px 14px; font-weight: 600; font-size: 13.5px; display: inline-flex; gap: 8px; align-items: center; }
+.btn i { width: 10px; height: 10px; border-radius: 50%; background: var(--d-line); }
+.btn.learn[aria-pressed="true"] { border-color: var(--ok); background: var(--ok-soft); color: var(--ok-ink); }
+.btn.learn[aria-pressed="true"] i { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+.btn.primary { background: var(--rack); color: #fff; border-color: var(--rack); }
+.verdict { font-weight: 700; font-size: 13.5px; }
+.verdict.good { color: var(--ok-ink); } .verdict.badv { color: var(--bad); }
+.empty { text-align: center; padding: 50px 16px; color: var(--mut); border: 1px dashed var(--d-line); border-radius: 12px; background: var(--panel); }
+footer.end { margin-top: 30px; text-align: center; color: var(--mut); font-size: 13px; }
+.to-top { position: fixed; inset-inline-end: 14px; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); z-index: 30; width: 42px; height: 42px; padding: 0; justify-content: center; border-radius: 50%; opacity: .92; }
+.to-top svg { width: 18px; height: 18px; stroke: #fff; fill: none; stroke-width: 2.4; }
+
+/* ===== رسومات SVG ===== */
+svg .t { font-family: var(--f-body); }
+svg .t.mono { font-family: var(--f-mono); }
+svg .t.ink { fill: var(--ink); } svg .t.mut { fill: var(--mut); } svg .t.ok { fill: var(--ok-ink); } svg .t.acc { fill: var(--acc-ink); }
+svg .t.bad { fill: var(--bad); } svg .t.on { fill: #fff; }
+svg .bx { fill: var(--d-box); stroke: var(--d-line); stroke-width: 1.2; }
+svg .bx.hi { fill: var(--ok-soft); stroke: var(--ok); stroke-width: 2; }
+svg .bx.dim { opacity: .8; }
+svg .bx.acc { fill: var(--acc-soft); stroke: var(--acc); stroke-width: 1.5; }
+svg .bx.bad { fill: var(--bad-soft); stroke: var(--bad); stroke-width: 1.6; }
+svg .bx.solid { fill: var(--ok-solid); stroke: var(--ok-solid); }
+svg .bx.jk { fill: #4B7FBF; stroke: #2E5C99; }
+svg .bx.term { fill: #0B1623; stroke: #29476A; }
+svg .ln { stroke: var(--d-line); stroke-width: 1.6; fill: none; }
+svg .ln.hi { stroke: var(--ok); stroke-width: 2.2; } svg .ln.acc { stroke: var(--acc); stroke-width: 2.2; }
+svg .ln.bad { stroke: var(--bad); stroke-width: 2; }
+svg .ln.dash { stroke-dasharray: 4 3; }
+svg .ah { fill: var(--d-line); } svg .ah.hi { fill: var(--ok); } svg .ah.acc { fill: var(--acc); }
+svg .mk circle { fill: var(--ok-solid); } svg .mk path { stroke: #fff; stroke-width: 2.2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+svg .mk.bad circle { fill: var(--bad); }
+svg .mkbig { stroke: #fff; stroke-width: 7; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+svg .mkbig.bad { stroke: var(--bad); }
+svg .shield { fill: none; stroke: #C4CBD3; stroke-width: 3; }
+svg .tp { fill: #7FD6A6; } svg .tc { fill: #E8EEF5; } svg .to { fill: #9FB3C8; } svg .te { fill: #FF8B80; } svg .tmut { fill: #6F89A3; }
+svg .tline { fill: #2F5D8F; opacity: .55; }
+
+@media (max-width: 860px) {
+  .cols { grid-template-columns: minmax(0, 1fr); }
+  .dg { order: -1; }
+}
+@media (max-width: 560px) {
+  body { font-size: 14.5px; }
+  .u { grid-template-columns: minmax(0, 1fr); }
+  .ear { flex-direction: row; justify-content: space-between; padding: 8px 22px; border-inline-end: 0; border-bottom: 1px solid rgba(255,255,255,.1); }
+  .ear::before, .ear::after { top: 50%; bottom: auto; transform: translateY(-50%); inset-inline: auto; margin: 0; }
+  .ear::before { inset-inline-start: 7px; } .ear::after { inset-inline-end: 7px; }
+  .ear .no { margin-top: 0; font-size: 18px; display: flex; gap: 8px; align-items: baseline; } .ear .no small { display: inline; }
+  .tip { grid-template-columns: minmax(0, 1fr); gap: 8px; } .tip .tag { justify-self: start; }
+  .readout { margin-inline-start: 0; width: 100%; }
+  .bar-tools { position: static; }
+  .cables { opacity: .35; width: 70%; }
+}
+@media (prefers-reduced-motion: reduce) { .leds i { animation: none !important; } html { scroll-behavior: auto; } .bar i { transition: none; } }
+</style><style>
+/* ===== مشترك: إجابات نصية، تنبيه، لوحة، تنقل ===== */
+.lcol { display: grid; gap: 10px; min-width: 0; align-content: start; }
+.ans { border: 1px solid var(--line); border-radius: 10px; background: var(--d-box); padding: 12px 14px; display: grid; gap: 10px; }
+.ans .lab { font-size: 12px; font-weight: 700; color: var(--mut); }
+.ans .chs { display: flex; flex-wrap: wrap; gap: 8px; }
+.ans .ch { font-family: var(--f-body); font-weight: 600; font-size: 15px; padding: 7px 14px; border-radius: 9px; background: var(--ok-soft); border: 1px solid var(--ok); color: var(--ok-ink); box-shadow: 0 0 16px -6px var(--ok); overflow-wrap: anywhere; }
+.veil .ans .chs { filter: blur(9px); opacity: .6; user-select: none; }
+.note { border: 1px solid var(--bad); background: var(--bad-soft); color: var(--ink); border-radius: 10px; padding: 9px 13px; font-size: 13.5px; }
+.note b { color: var(--bad); }
+svg .bx.brd { fill: var(--d-box); stroke: var(--d-line); stroke-width: 1.6; }
+.nav { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; padding: 6px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow); }
+.nav a { text-decoration: none; color: var(--mut); font-weight: 700; font-size: 13.5px; padding: 7px 14px; border-radius: 8px; display: inline-flex; gap: 8px; align-items: center; }
+.nav a i { width: 9px; height: 9px; border-radius: 50%; background: var(--c); }
+.nav a:hover { background: var(--d-box); color: var(--ink); }
+.nav a[aria-current="page"] { background: var(--c); color: #fff; }
+.nav a[aria-current="page"] i { background: #fff; }
+.nav a.home { margin-inline-end: auto; }
+@media (max-width: 560px) { .nav { overflow-x: auto; flex-wrap: nowrap; } .nav a { flex: none; } .nav a.home { margin-inline-end: 0; } }
+/* تهدئة عامة: بلا توهّج */
+.rev .op.is-ok{box-shadow:none}.ans .ch{box-shadow:none}
+.btn.learn[aria-pressed="true"] i,.tgl[aria-pressed="true"] i{box-shadow:none}
+.meter{background:rgba(0,0,0,.2)}
+
+/* هادئ للمذاكرة */
+:root{--bg:#F6F4EF;--panel:#FFFFFF;--ink:#2B3138;--mut:#69727D;--line:#E3E0D9;--d-box:#F8F7F3;--d-line:#B3B8BF;--ok:#4E9A7A;--ok-solid:#3F8266;--ok-ink:#2B6A51;--ok-soft:#E6F1EA;--bad:#BF5F58;--bad-soft:#F7E7E5;--acc:#A98450;--acc-ink:#7A5B2E;--acc-soft:#F8F2E6;--acc-line:#E5D4B0;--blue:#5B7FA3;--brand:#A0687E;--brand-soft:color-mix(in srgb,#A0687E 11%,#fff);--grid:rgba(43,49,56,.025);--rack:#A0687E;--rack-2:#A0687E;--c:#A0687E;--shadow:0 1px 2px rgba(43,49,56,.05),0 8px 22px -16px rgba(43,49,56,.2);}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#15181C;--panel:#1D2126;--ink:#E5E7EA;--mut:#98A1AB;--line:#2C3239;--d-box:#242A30;--d-line:#5A636D;--ok:#5FBE98;--ok-solid:#2F7A5C;--ok-ink:#8DD8B8;--ok-soft:#18312A;--bad:#E58F88;--bad-soft:#3A2523;--acc:#D2AE74;--acc-ink:#E2C594;--acc-soft:#2E2819;--acc-line:#6A5934;--blue:#86A8CB;--brand:#D9A3B8;--brand-soft:color-mix(in srgb,#D9A3B8 13%,#1D2126);--grid:rgba(220,230,255,.025);--rack:#D9A3B8;--rack-2:#D9A3B8;--c:#D9A3B8;--shadow:0 1px 0 rgba(0,0,0,.25),0 10px 24px -18px rgba(0,0,0,.6);color-scheme:dark;}}
+:root[data-theme="dark"]{--bg:#15181C;--panel:#1D2126;--ink:#E5E7EA;--mut:#98A1AB;--line:#2C3239;--d-box:#242A30;--d-line:#5A636D;--ok:#5FBE98;--ok-solid:#2F7A5C;--ok-ink:#8DD8B8;--ok-soft:#18312A;--bad:#E58F88;--bad-soft:#3A2523;--acc:#D2AE74;--acc-ink:#E2C594;--acc-soft:#2E2819;--acc-line:#6A5934;--blue:#86A8CB;--brand:#D9A3B8;--brand-soft:color-mix(in srgb,#D9A3B8 13%,#1D2126);--grid:rgba(220,230,255,.025);--rack:#D9A3B8;--rack-2:#D9A3B8;--c:#D9A3B8;--shadow:0 1px 0 rgba(0,0,0,.25),0 10px 24px -18px rgba(0,0,0,.6);color-scheme:dark;}
+body{background-image:none}
+.rack{background:var(--panel);color:var(--ink);border:1px solid var(--line);box-shadow:var(--shadow);border-top:4px solid var(--brand)}
+.rack::before,.rack::after,.cables,.leds{display:none}
+.rack-in{padding-inline:0}
+h1 span{color:var(--brand)}
+.eyebrow{color:var(--mut)}.lead{color:var(--mut)}
+.meter{background:var(--brand-soft);border:1px solid var(--line)}.meter b{color:var(--ink)}.meter small{color:var(--mut)}
+.bar{background:var(--line)}.bar i{background:var(--brand)}
+.chip[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:#fff}
+.seg button[aria-pressed="true"],.btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+.veil-note span{background:var(--brand);color:#fff}
+:root[data-theme="dark"] .chip[aria-pressed="true"],:root[data-theme="dark"] .seg button[aria-pressed="true"],:root[data-theme="dark"] .btn.primary,:root[data-theme="dark"] .veil-note span{color:#15181C}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .chip[aria-pressed="true"],:root:not([data-theme="light"]) .seg button[aria-pressed="true"],:root:not([data-theme="light"]) .btn.primary,:root:not([data-theme="light"]) .veil-note span{color:#15181C}}
+.to-top svg{stroke:currentColor}
+.ear{background:var(--brand-soft);color:var(--ink);border-inline-end:1px solid var(--line)}
+.ear::before,.ear::after{background:var(--line);box-shadow:none}
+.ear .no{color:var(--brand)}.ear .no small{color:var(--mut)}
+.ear .led{background:var(--line);box-shadow:none}.u[data-known="1"] .ear .led{background:var(--ok);box-shadow:none}
+.tip .tag{background:var(--acc);color:#fff}
+:root[data-theme="dark"] .tip .tag{color:#15181C}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .tip .tag{color:#15181C}}
+.rev .op.is-ok,.ans .ch{box-shadow:none}
+.topic{color:var(--brand)}.topic::before{background:var(--brand)}
+.op{border-radius:999px;padding:9px 16px}.op .jack{border-radius:50%}
+@media (max-width:560px){.ear{border-bottom:1px solid var(--line)}}
+
+</style>
+
+<style id="glass-refresh">
+/* Unified ink titles and quiet glass surfaces. */
+h1,h1 span,h2,h2 span,h3,.rack h1,.rack h1 span{color:var(--ink)!important}
+body{background-image:radial-gradient(ellipse at 8% 4%,color-mix(in srgb,var(--brand) 10%,transparent),transparent 34%),radial-gradient(ellipse at 92% 45%,color-mix(in srgb,var(--blue) 7%,transparent),transparent 38%)}
+.rack,.bar-tools,.nav,.u,.empty,.screen,.ans,.op,.chip,.tgl,.seg,.btn,.tip,.meter{backdrop-filter:blur(16px) saturate(128%);-webkit-backdrop-filter:blur(16px) saturate(128%)}
+.rack,.bar-tools,.nav,.u,.empty{background:color-mix(in srgb,var(--panel) 76%,transparent);border-color:color-mix(in srgb,var(--line) 72%,white 18%);box-shadow:0 14px 38px rgba(35,58,65,.065),inset 0 1px 0 rgba(255,255,255,.52)}
+.rack{border-radius:18px;border-top:1px solid color-mix(in srgb,var(--line) 72%,white 18%)}
+.bar-tools,.nav{border-radius:15px}
+.u{border-radius:16px;overflow:hidden}
+.screen,.ans,.op,.chip,.tgl,.seg,.btn,.meter{background-color:color-mix(in srgb,var(--d-box) 78%,transparent)}
+.op{border-color:color-mix(in srgb,var(--line) 72%,white 20%);border-radius:12px}
+.chip,.tgl,.btn,.meter{border-radius:11px}
+.topic,.topic::before{color:var(--brand);background-color:var(--brand)}
+.topic{background:none}
+.tip{border-style:solid;border-color:color-mix(in srgb,var(--acc-line) 72%,transparent);background:color-mix(in srgb,var(--acc-soft) 75%,transparent);border-radius:13px}
+.ear{background:color-mix(in srgb,var(--brand-soft) 70%,transparent)}
+footer.end{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 4px;color:var(--mut)}
+footer.end .credit{display:inline-flex;align-items:center;gap:7px;direction:ltr;font:700 12px var(--f-body);white-space:nowrap;color:var(--mut)}
+footer.end .credit b{padding:4px 8px;border:1px solid color-mix(in srgb,var(--brand) 38%,var(--line));border-radius:8px;background:var(--brand-soft);color:var(--brand);font:800 13px var(--f-body);letter-spacing:.01em}
+:root[data-theme="dark"] footer.end .credit b{color:#efbed0;border-color:color-mix(in srgb,var(--brand) 45%,var(--line))}
+:root[data-theme="dark"] .rack,:root[data-theme="dark"] .bar-tools,:root[data-theme="dark"] .nav,:root[data-theme="dark"] .u,:root[data-theme="dark"] .empty{border-color:color-mix(in srgb,var(--line) 75%,white 6%);box-shadow:0 16px 42px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.045)}
+@media(prefers-reduced-transparency:reduce){.rack,.bar-tools,.nav,.u,.empty,.screen,.ans,.op,.chip,.tgl,.seg,.btn,.tip,.meter{backdrop-filter:none;-webkit-backdrop-filter:none}.rack,.bar-tools,.nav,.u,.empty{background:var(--panel)}}
+@media(max-width:560px){footer.end{justify-content:center;text-align:center}}
+
+/* In self-test, keep the illustration itself hidden until the learner answers. */
+.veil .screen svg,.veil .screen img,.veil .screen canvas{filter:none!important;opacity:0!important;visibility:hidden!important}
+.veil .dg figcaption{visibility:hidden}
+
+/* Dark mode surfaces: lower glare and make the page background deliberate. */
+:root[data-theme="dark"] body{background-color:#14171c;background-image:none!important}
+:root[data-theme="dark"] .rack,:root[data-theme="dark"] .bar-tools,:root[data-theme="dark"] .nav,:root[data-theme="dark"] .u,:root[data-theme="dark"] .empty{background:color-mix(in srgb,var(--panel) 94%,#0c1014);border-color:color-mix(in srgb,var(--line) 86%,white 3%);box-shadow:0 18px 46px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.035)}
+:root[data-theme="dark"] .screen,:root[data-theme="dark"] .ans,:root[data-theme="dark"] .op,:root[data-theme="dark"] .chip,:root[data-theme="dark"] .tgl,:root[data-theme="dark"] .seg,:root[data-theme="dark"] .btn,:root[data-theme="dark"] .meter{background-color:color-mix(in srgb,var(--d-box) 92%,var(--panel));border-color:color-mix(in srgb,var(--line) 86%,white 3%)}
+:root[data-theme="dark"] .tip{background:color-mix(in srgb,var(--acc-soft) 88%,var(--panel));border-color:color-mix(in srgb,var(--acc-line) 82%,var(--line))}
+@media(prefers-reduced-transparency:reduce){:root[data-theme="dark"] .rack,:root[data-theme="dark"] .bar-tools,:root[data-theme="dark"] .nav,:root[data-theme="dark"] .u,:root[data-theme="dark"] .empty{background:var(--panel)}}
+</style>
+</head><body><div class="wrap" dir="rtl" lang="ar">
+  
+  <header class="rack">
+    <svg class="cables" viewBox="0 0 520 330" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M-20 70 C 120 70, 150 250, 300 250 S 480 120, 560 150" stroke="#FF5C9E" />
+      <path d="M-20 130 C 100 130, 190 40, 320 80 S 470 280, 560 250" stroke="#4DD0DB" />
+      <path d="M-20 215 C 140 215, 170 150, 310 170 S 450 60, 560 70" stroke="#FFD1E3" />
+    </svg>
+    <div class="rack-in">
+      <div class="leds" id="leds" aria-hidden="true"></div>
+      <p class="eyebrow">SELF-ASSESSMENTS · 9 QUIZZES</p>
+      <h1>التقييمات <span>الذاتية</span></h1>
+      <p class="lead">تسعة تقييمات في أساسيات الشبكات، اختيار من متعدد وصواب أو خطأ، مع رسم وخلاصة لكل سؤال.</p>
+      <div class="meters">
+        <div class="meter"><b>45</b><small>سؤالًا</small></div>
+        <div class="meter"><b>9</b><small>تقييمات</small></div>
+        <div class="meter wide"><b><span id="mKnown">0</span> / <span id="mTot">0</span></b><small>أسئلة حفظتها</small><div class="bar"><i id="mBar"></i></div></div>
+      </div>
+    </div>
+  </header>
+
+  <section class="bar-tools" aria-label="أدوات التصفية">
+    <div class="row">
+      <label class="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="search" type="search" placeholder="ابحث بالرقم أو الكلمة، مثال: switch أو 57" aria-label="بحث في الأسئلة"></label>
+      <div class="seg" role="group" aria-label="وضع العرض"><button type="button" data-mode="review" aria-pressed="false">مراجعة</button><button type="button" data-mode="test" aria-pressed="true">اختبار ذاتي</button></div>
+      <button type="button" class="tgl" id="unl" aria-pressed="false"><i></i>غير المحفوظة فقط</button>
+      <button type="button" class="iconbtn" id="theme" aria-label="تبديل المظهر الفاتح والداكن"><svg viewBox="0 0 24 24"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3 6.6 6.6 0 0 0 21 12.8z"/></svg></button>
+    </div>
+    <div class="row"><div class="chips" id="chips" role="group" aria-label="المحاور"></div></div>
+    <div class="row"><span class="readout" id="readout"></span></div>
+  </section>
+
+  <main class="list" id="list" aria-live="polite"></main>
+  <footer class="end">مصدر الأسئلة: ملف التقييمات الذاتية. الإجابات من العلامات في الملف، والتنبيهات تشير إلى ما يخالف المرجع.<span class="credit">Built by <b>Yazeed Hamed</b></span></footer>
+  <button type="button" class="btn primary to-top" id="top" aria-label="العودة للأعلى"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+</div>
+<script>window.CFG={"key":"nb-c","q":"Q"};
+/* مساعدات بناء الرسوم */
+const g = (items, hi, cap) => ({ t: 'grid', items: items.map(([t, d, m]) => ({ t, d, m })), hi, cap });
+const ch = (items, hi, cap, title) => ({ t: 'chain', items: items.map(([t, s, m]) => ({ t, s, m })), hi, cap, title });
+const ly = (m, hi, cap) => ({ t: 'layers', m, hi, cap });
+const cm = (lines, cap, title) => ({ t: 'cmd', lines, cap, title });
+const q = (id, topic, o, a, en, ar, tip, why, d) => ({ id, topic, o, a, en, ar, tip, why, d });
+
+
+/* ===== مولّد الرسوم التوضيحية (SVG) ===== */
+const W = 360, H = 200;
+const E = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+function T(x, y, s, o = {}) {
+  const ar = /[\u0600-\u06FF]/.test(s), m = o.m && !ar; let a = o.a || 'middle';
+  if (!m && a !== 'middle') a = a === 'end' ? 'start' : 'end'; /* الصفحة RTL: نحوّل المواضع البصرية */
+  return `<text x="${x}" y="${y}" class="t ${o.c || 'ink'}${m ? ' mono' : ''}" font-size="${o.s || 11}" text-anchor="${a}" font-weight="${o.w || 500}"${m ? ' direction="ltr"' : ''}>${E(s)}</text>`;
+}
+const R = (x, y, w, h, k = '', r = 6) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" class="bx ${k}"/>`;
+const L = (x1, y1, x2, y2, k = '') => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" class="ln ${k}"/>`;
+const C = (x, y, r, k = '') => `<circle cx="${x}" cy="${y}" r="${r}" class="bx ${k}"/>`;
+function A(x1, y1, x2, y2, k = '') {
+  const a = Math.atan2(y2 - y1, x2 - x1), s = 6.5;
+  const p = [[x2, y2], [x2 - s * Math.cos(a - .45), y2 - s * Math.sin(a - .45)], [x2 - s * Math.cos(a + .45), y2 - s * Math.sin(a + .45)]];
+  return L(x1, y1, x2 - 3 * Math.cos(a), y2 - 3 * Math.sin(a), k) + `<polygon points="${p.map(q => q.map(v => v.toFixed(1)).join(',')).join(' ')}" class="ah ${k.replace('dash', '')}"/>`;
+}
+function wrap(s, n) {
+  const w = String(s).split(' '), out = []; let cur = '';
+  for (const x of w) { if ((cur + ' ' + x).trim().length > n && cur) { out.push(cur); cur = x; } else cur = (cur + ' ' + x).trim(); }
+  if (cur) out.push(cur); return out;
+}
+function ML(x, y, s, n, o = {}) {
+  const ls = wrap(s, n), lh = (o.s || 10) * 1.45, y0 = y - (ls.length - 1) * lh / 2;
+  return ls.map((l, i) => T(x, y0 + i * lh + 3.5, l, o)).join('');
+}
+const OK = (x, y) => `<g class="mk ok"><circle cx="${x}" cy="${y}" r="9"/><path d="M${x - 4} ${y} l3 3 l5-6"/></g>`;
+const NO = (x, y) => `<g class="mk bad"><circle cx="${x}" cy="${y}" r="9"/><path d="M${x - 3.5} ${y - 3.5} l7 7 M${x + 3.5} ${y - 3.5} l-7 7"/></g>`;
+const inc = (a, v) => (a || []).includes(v);
+
+/* ---------- الطبقات ---------- */
+const TCP = [['التطبيق', 'Application', 'HTTP · DNS · DHCP', ''], ['النقل', 'Transport', 'TCP · UDP', 'Segment'], ['الإنترنت', 'Internet', 'IP · ICMP', 'Packet'], ['وصول الشبكة', 'Network Access', 'Ethernet · Wi-Fi', 'Frame']];
+const OSI = [['التطبيق', 'Application', '', 'Data'], ['العرض', 'Presentation', '', 'Data'], ['الجلسة', 'Session', '', 'Data'], ['النقل', 'Transport', 'TCP · UDP', 'Segment'], ['الشبكة', 'Network', 'IP', 'Packet'], ['ربط البيانات', 'Data Link', 'MAC · Ethernet', 'Frame'], ['الفيزيائية', 'Physical', 'كابل · إشارة', 'Bits']];
+function layers(s) {
+  const D = s.m === 'osi' ? OSI : TCP, n = D.length, gap = n > 4 ? 4 : 8, h = (H - 16 - (n - 1) * gap) / n; let o = '';
+  D.forEach((d, i) => {
+    const y = 8 + i * (h + gap), hi = inc(s.hi, i), cy = y + h / 2 + 4, sz = n > 4 ? 11 : 13;
+    o += R(8, y, 344, h, hi ? 'hi' : '');
+    o += T(344, cy, d[0], { a: 'end', s: sz, w: 700, c: hi ? 'ok' : 'ink' });
+    o += T(262, cy, d[1], { a: 'end', s: 9, m: 1, c: 'mut' });
+    if (s.m === 'osi') o += T(18, cy, 'L' + (7 - i), { a: 'start', s: 9, m: 1, c: 'mut', w: 700 });
+    if (d[2]) o += T(s.m === 'osi' ? 40 : 18, cy, d[2], { a: 'start', s: 9, m: 1, c: 'mut' });
+    if (d[3]) { o += R(124, y + h / 2 - 8, 54, 16, hi ? 'solid' : 'acc', 8) + T(151, cy - .5, d[3], { s: 8.5, m: 1, c: hi ? 'on' : 'acc', w: 700 }); }
+  });
+  return o;
+}
+
+/* ---------- سلسلة خطوات ---------- */
+function chain(s) {
+  const it = s.items, n = it.length, gw = n > 4 ? 14 : 20, w = (344 - (n - 1) * gw) / n, h = s.h || 74, y = (H - h) / 2 + (s.title ? 10 : 0);
+  let o = s.title ? T(180, 24, s.title, { c: 'mut', s: 11, w: 600 }) : '';
+  it.forEach((d, i) => {
+    const x = 8 + i * (w + gw), hi = inc(s.hi, i), cn = Math.floor(w / (n > 4 ? 5.6 : 6.3));
+    o += R(x, y, w, h, hi ? 'hi' : '');
+    const sz = n > 4 ? 10 : 11, l1 = wrap(d.t, cn).length, l2 = d.s ? wrap(d.s, cn + 2).length : 0, h1 = l1 * sz * 1.45, h2 = l2 * 13, tot = h1 + (l2 ? 6 + h2 : 0), top = y + h / 2 - tot / 2;
+    o += ML(x + w / 2, top + h1 / 2, d.t, cn, { s: sz, w: 700, m: d.m, c: hi ? 'ok' : 'ink' });
+    if (d.s) o += ML(x + w / 2, top + h1 + 6 + h2 / 2, d.s, cn + 2, { s: 9, c: 'mut' });
+    if (i < n - 1) o += A(x + w + 3, y + h / 2, x + w + gw - 3, y + h / 2, hi || inc(s.hi, i + 1) ? 'hi' : '');
+  });
+  return o;
+}
+
+/* ---------- أنماط الإرسال ---------- */
+function cast(s) {
+  const ys = [34, 67, 100, 133, 166], rec = s.mode === 'uni' ? [2] : s.mode === 'multi' ? [0, 2, 4] : [0, 1, 2, 3, 4];
+  const lab = { uni: 'إلى جهاز واحد · Unicast', multi: 'إلى مجموعة محددة · Multicast', broad: 'إلى الجميع · Broadcast' }[s.mode];
+  let o = T(180, 16, lab, { s: 11, w: 700, c: 'mut' });
+  o += C(46, 100, 22, 'acc') + T(46, 104, 'مرسل', { s: 10, w: 700, c: 'acc' });
+  ys.forEach((y, i) => {
+    const r = rec.includes(i);
+    if (r) o += A(70, 100, 268, y, 'hi');
+    o += R(272, y - 13, 60, 26, r ? 'hi' : 'dim', 5) + T(302, y + 4, r ? 'يستلم' : 'يتجاهل', { s: 10, w: 600, c: r ? 'ok' : 'mut' });
+    if (!r) o += NO(344, y);
+    else o += OK(344, y);
+  });
+  return o;
+}
+
+/* ---------- أنظمة العد ---------- */
+function numconv(s) {
+  const m = s.m; let o = '';
+  const bitsRow = (bits, n, y, label) => {
+    const cw = Math.min(32, 336 / n), x0 = (W - n * cw) / 2; let sum = [], tot = 0;
+    o += T(180, 20, label, { s: 11, w: 700, c: 'mut' });
+    for (let i = 0; i < n; i++) {
+      const pv = 2 ** (n - 1 - i), on = bits[i] === '1', x = x0 + i * cw;
+      o += T(x + cw / 2, y - 6, pv, { s: 9, m: 1, c: 'mut' });
+      o += R(x + 1, y, cw - 2, 30, on ? 'hi' : '', 4) + T(x + cw / 2, y + 20, bits[i], { s: 14, m: 1, w: 700, c: on ? 'ok' : 'mut' });
+      if (on) { sum.push(pv); tot += pv; }
+    }
+    return { sum, tot };
+  };
+  if (m === 'bin2dec') {
+    const n = s.v.length, r = bitsRow(s.v, n, 52, 'ثنائي ← عشري: اجمع قيم الخانات المضاءة');
+    o += T(180, 118, r.sum.join(' + '), { s: 13, m: 1, w: 600 });
+    o += R(110, 134, 140, 38, 'solid', 8) + T(180, 160, '= ' + r.tot, { s: 20, m: 1, w: 700, c: 'on' });
+  } else if (m === 'dec2bin') {
+    const n = s.n || 8, bits = (+s.v).toString(2).padStart(n, '0'), r = bitsRow(bits, n, 52, 'عشري ← ثنائي: اطرح أكبر قيمة تناسب ثم كرر');
+    o += T(180, 118, s.v + ' = ' + r.sum.join(' + '), { s: 12, m: 1, w: 600 });
+    o += R(60, 134, 240, 38, 'solid', 8) + T(180, 160, bits, { s: 18, m: 1, w: 700, c: 'on' });
+  } else if (m === 'hex2dec') {
+    const d = s.v.split(''), n = d.length, bw = 70, gw = 40, x0 = (W - (n * bw + (n - 1) * gw)) / 2; let tot = 0, parts = [];
+    o += T(180, 20, 'ست عشري ← عشري: كل خانة × 16 أُس موقعها', { s: 11, w: 700, c: 'mut' });
+    d.forEach((c, i) => {
+      const v = parseInt(c, 16), pw = 16 ** (n - 1 - i), x = x0 + i * (bw + gw); tot += v * pw; parts.push(v * pw);
+      o += T(x + bw / 2, 48, '× ' + pw, { s: 12, m: 1, c: 'acc', w: 700 });
+      o += R(x, 56, bw, 44, 'hi') + T(x + bw / 2, 86, c, { s: 26, m: 1, w: 700, c: 'ok' });
+      o += T(x + bw / 2, 118, c + (v > 9 ? ' (' + v + ')' : '') + ' × ' + pw + ' = ' + v * pw, { s: 10, m: 1, c: 'ink' });
+    });
+    o += R(90, 134, 180, 38, 'solid', 8) + T(180, 160, parts.join(' + ') + ' = ' + tot, { s: 15, m: 1, w: 700, c: 'on' });
+  } else if (m === 'dec2hex') {
+    let v = +s.v, rem = [], step = []; o += T(180, 20, 'عشري ← ست عشري: اقسم على 16 واقرأ الباقي (rem) من الأسفل للأعلى', { s: 10.5, w: 700, c: 'mut' });
+    let y = 46;
+    while (v > 0) { const q = Math.floor(v / 16), r = v % 16; rem.unshift(r.toString(16).toUpperCase()); o += R(40, y - 14, 280, 24, '', 5) + T(180, y + 3, `${v} ÷ 16 = ${q}   rem ${r}` + (r > 9 ? ' → ' + r.toString(16).toUpperCase() : ''), { s: 12, m: 1, w: 600 }); v = q; y += 30; }
+    o += R(100, 142, 160, 40, 'solid', 8) + T(180, 169, rem.join(''), { s: 22, m: 1, w: 700, c: 'on' });
+  } else if (m === 'hex2bin') {
+    const d = s.v.split(''), n = d.length, gw = 340 / n, cell = Math.min(24, (gw - 10) / 4);
+    o += T(180, 20, 'ست عشري ← ثنائي: كل خانة = 4 بتات (8-4-2-1)', { s: 11, w: 700, c: 'mut' });
+    let all = [];
+    d.forEach((c, i) => {
+      const b = parseInt(c, 16).toString(2).padStart(4, '0'), cx = 10 + gw * i + gw / 2, x0 = cx - 2 * cell; all.push(b);
+      o += R(cx - 22, 34, 44, 34, 'hi') + T(cx, 59, c, { s: 22, m: 1, w: 700, c: 'ok' });
+      o += A(cx, 70, cx, 86, 'acc');
+      [8, 4, 2, 1].forEach((pv, k) => { o += T(x0 + k * cell + cell / 2, 96, pv, { s: 9, m: 1, c: 'mut' }) + R(x0 + k * cell + 1, 100, cell - 2, 28, b[k] === '1' ? 'hi' : '', 4) + T(x0 + k * cell + cell / 2, 119, b[k], { s: 13, m: 1, w: 700, c: b[k] === '1' ? 'ok' : 'mut' }); });
+    });
+    o += R(30, 142, 300, 40, 'solid', 8) + T(180, 169, all.join(' '), { s: 17, m: 1, w: 700, c: 'on' });
+  }
+  return o;
+}
+
+/* ---------- الطوبولوجيا ---------- */
+function topo(s) {
+  const nd = (x, y, k = '') => C(x, y, 9, k), sw = (x, y, k = 'acc') => R(x - 14, y - 9, 28, 18, k, 4) + `<line x1="${x - 8}" y1="${y - 2}" x2="${x + 8}" y2="${y - 2}" class="ln"/><line x1="${x - 8}" y1="${y + 3}" x2="${x + 8}" y2="${y + 3}" class="ln"/>`;
+  const lab = { star: 'نجمية Star', bus: 'ناقل Bus', ring: 'حلقية Ring', mesh: 'شبكية Mesh', extstar: 'نجمية ممتدة Extended Star', p2p: 'نقطة لنقطة Point-to-Point', hub: 'محوري Hub and Spoke', redundant: 'مسارات متعددة Redundancy', grow: 'شبكة قابلة للتوسع Scalable' }[s.k];
+  let o = T(180, 16, lab, { s: 11, w: 700, c: 'mut' }), p = [];
+  if (s.k === 'star' || s.k === 'grow') {
+    const cx = 180, cy = 108; for (let i = 0; i < 6; i++) { const a = -Math.PI / 2 + i * Math.PI / 3 + Math.PI / 6; p.push([cx + 125 * Math.cos(a), cy + 66 * Math.sin(a)]); }
+    p.forEach((q, i) => { const d = s.k === 'grow' && i > 3; o += L(cx, cy, q[0], q[1], d ? 'dash' : 'hi'); });
+    p.forEach((q, i) => { const d = s.k === 'grow' && i > 3; o += nd(q[0], q[1], d ? 'dim' : '') + (d ? T(q[0], q[1] + 24, '+ جديد', { s: 9, c: 'acc', w: 700 }) : ''); });
+    o += sw(cx, cy);
+  } else if (s.k === 'bus') {
+    o += L(24, 100, 336, 100, 'hi'); [50, 115, 180, 245, 310].forEach((x, i) => { const up = i % 2 === 0; o += L(x, 100, x, up ? 68 : 132) + nd(x, up ? 60 : 140); });
+  } else if (s.k === 'ring') {
+    const cx = 180, cy = 108; for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3; p.push([cx + 100 * Math.cos(a), cy + 66 * Math.sin(a)]); }
+    p.forEach((q, i) => { const n = p[(i + 1) % 6]; o += L(q[0], q[1], n[0], n[1], 'hi'); }); p.forEach(q => o += nd(q[0], q[1]));
+  } else if (s.k === 'mesh') {
+    const cx = 180, cy = 106; for (let i = 0; i < 5; i++) { const a = -Math.PI / 2 + i * 2 * Math.PI / 5; p.push([cx + 100 * Math.cos(a), cy + 72 * Math.sin(a)]); }
+    p.forEach((q, i) => p.forEach((r, j) => { if (j > i) o += L(q[0], q[1], r[0], r[1], 'hi'); })); p.forEach(q => o += nd(q[0], q[1]));
+  } else if (s.k === 'extstar') {
+    o += sw(180, 44, 'hi'); [60, 180, 300].forEach(x => { o += L(180, 53, x, 98, 'hi') + sw(x, 106); [-26, 26].forEach(d => { o += L(x, 115, x + d, 160) + nd(x + d, 168); }); });
+  } else if (s.k === 'p2p') {
+    o += nd(60, 100) + nd(300, 100) + L(69, 100, 291, 100, 'hi') + T(180, 90, 'رابط WAN', { s: 10, c: 'mut' });
+  } else if (s.k === 'hub') {
+    [[50, 56], [310, 56], [50, 160], [310, 160]].forEach(q => o += L(180, 106, q[0], q[1], 'hi') + nd(q[0], q[1])); o += C(180, 106, 17, 'acc') + T(180, 110, 'HQ', { s: 11, w: 700, m: 1, c: 'acc' });
+  } else if (s.k === 'redundant') {
+    o += nd(40, 106) + nd(320, 106); [52, 106, 160].forEach(y => { o += L(49, 106, 160, y, 'hi') + L(200, y, 311, 106, 'hi') + R(160, y - 9, 40, 18, 'acc', 4) + T(180, y + 3.5, 'Router', { s: 8, m: 1, c: 'acc' }); });
+  }
+  return o;
+}
+
+/* ---------- أوضاع IOS ---------- */
+function ios(s) {
+  const lv = [['Switch>', 'User EXEC', 'عرض محدود'], ['Switch#', 'Privileged EXEC', 'كل الأوامر'], ['Switch(config)#', 'Global Config', 'إعدادات الجهاز'], ['Switch(config-if)#', 'Interface / Line', 'إعداد منفذ أو خط']];
+  const cm = ['enable', 'configure terminal', 'interface g0/1'];
+  let o = '';
+  lv.forEach((d, i) => {
+    const y = 6 + i * 48, hi = s.hi === i;
+    o += R(108, y, 244, 34, hi ? 'hi' : '') + T(118, y + 21, d[0], { a: 'start', s: 11.5, m: 1, w: 700, c: hi ? 'ok' : 'ink' });
+    o += T(344, y + 14, d[1], { a: 'end', s: 10, m: 1, c: 'mut' }) + T(344, y + 28, d[2], { a: 'end', s: 11, w: 700, c: hi ? 'ok' : 'ink' });
+    if (i < 3) { o += A(150, y + 35, 150, y + 47, 'acc') + T(160, y + 45, cm[i], { a: 'start', s: 8.5, m: 1, c: 'acc' }); o += A(70, y + 47, 70, y + 35, 'dash') + T(62, y + 45, 'exit', { a: 'end', s: 8.5, m: 1, c: 'mut' }); }
+  });
+  return o;
+}
+
+/* ---------- إطار إيثرنت ---------- */
+function frame(s) {
+  const F = [['pre', 'Preamble', 'مقدمة', '7', 50], ['sfd', 'SFD', 'بداية', '1', 28], ['dst', 'Dest MAC', 'وجهة', '6', 50], ['src', 'Src MAC', 'مصدر', '6', 50], ['type', 'Type', 'نوع', '2', 34], ['data', 'Data', 'بيانات', '46–1500', 60], ['fcs', 'FCS', 'فحص', '4', 38]];
+  const tot = F.reduce((a, f) => a + f[4], 0) + 6 * 3, x0 = (W - tot) / 2; let x = x0, o = T(180, 20, 'مكونات إطار Ethernet (بالبايت)', { s: 11, w: 700, c: 'mut' }); const pos = {};
+  F.forEach(f => {
+    const hi = inc(s.hi, f[0]); pos[f[0]] = x;
+    o += T(x + f[4] / 2, 70, f[3], { s: 9, m: 1, c: 'mut' }) + R(x, 76, f[4], 40, hi ? 'hi' : '', 4);
+    o += T(x + f[4] / 2, 100, f[1].replace(' ', ' ').length > 8 ? f[1].split(' ')[0] : f[1], { s: 8, m: 1, w: 700, c: hi ? 'ok' : 'ink' });
+    o += T(x + f[4] / 2, 134, f[2], { s: 10, w: 600, c: hi ? 'ok' : 'mut' }); x += f[4] + 3;
+  });
+  const a = pos.dst, b = pos.fcs + 38;
+  o += L(a, 152, b, 152, 'acc') + L(a, 148, a, 156, 'acc') + L(b, 148, b, 156, 'acc') + T((a + b) / 2, 172, 'من الوجهة إلى FCS = 64 إلى 1518 بايت', { s: 10.5, w: 700, c: 'acc' });
+  return o;
+}
+
+/* ---------- السويتش ---------- */
+function sw(s) {
+  let o = '';
+  const pc = (x, y, t, hi) => R(x - 26, y - 14, 52, 28, hi ? 'hi' : '', 5) + T(x, y + 4, t, { s: 10, m: 1, w: 700, c: hi ? 'ok' : 'ink' });
+  const sx = (x, y) => R(x - 34, y - 18, 68, 36, 'acc', 6) + T(x, y + 4, 'Switch', { s: 11, m: 1, w: 700, c: 'acc' });
+  if (s.mode === 'learn') {
+    o += T(180, 16, 'السويتش يتعلم من عنوان المصدر (Source) في الإطار الوارد', { s: 10.5, w: 700, c: 'mut' });
+    o += pc(46, 100, 'PC-A', 1) + A(74, 100, 140, 100, 'hi') + T(106, 90, 'src = AA', { s: 9, m: 1, c: 'ok' }) + sx(180, 100) + T(180, 128, 'المنفذ 1', { s: 9, c: 'mut' });
+    o += R(222, 56, 126, 90, '') + T(285, 74, 'MAC Table', { s: 10, m: 1, w: 700, c: 'mut' }) + R(228, 84, 114, 22, 'hi', 4) + T(285, 99, 'AA ← Port 1', { s: 11, m: 1, w: 700, c: 'ok' }) + T(285, 124, 'يُسجَّل المصدر', { s: 10, w: 600 }) + T(285, 138, 'وليس الوجهة', { s: 10, w: 600 });
+    o += A(214, 100, 228, 95, 'acc');
+  } else if (s.mode === 'flood') {
+    o += T(180, 16, 'الوجهة FF:FF:FF:FF:FF:FF = بث شامل', { s: 11, w: 700, c: 'mut', m: 1 });
+    o += pc(46, 100, 'PC-A') + A(74, 100, 140, 100, 'acc') + sx(180, 100);
+    [[300, 44, 'PC-B'], [300, 100, 'PC-C'], [300, 156, 'PC-D']].forEach(q => { o += A(214, 100, 268, q[1], 'hi') + pc(q[0], q[1], q[2], 1); });
+    o += NO(46, 140) + T(46, 164, 'لا يعود للمنفذ', { s: 9, c: 'mut' }) + T(46, 176, 'الوارد منه', { s: 9, c: 'mut' });
+  } else if (s.mode === 'hostdiscard') {
+    o += T(180, 16, 'وجهة الإطار (Unicast) لا تطابق MAC الجهاز', { s: 11, w: 700, c: 'mut' });
+    o += R(20, 70, 110, 56, '', 6) + T(75, 92, 'إطار قادم', { s: 11, w: 700 }) + T(75, 110, 'dst = 00:AA', { s: 10, m: 1, c: 'mut' });
+    o += A(134, 98, 214, 98, 'acc') + R(220, 66, 120, 64, 'bad', 6) + T(280, 88, 'الجهاز', { s: 11, w: 700 }) + T(280, 106, 'MAC = 00:BB', { s: 10, m: 1, c: 'mut' }) + T(280, 122, 'غير مطابق', { s: 10, c: 'bad', w: 700 });
+    o += NO(280, 156) + T(180, 184, 'النتيجة: يُهمَل الإطار (Discard)', { s: 12, w: 700, c: 'bad' });
+  } else if (s.mode === 'hostaccept') {
+    o += T(180, 16, 'الوجهة FF:FF:FF:FF:FF:FF = موجَّه لكل الأجهزة', { s: 11, w: 700, c: 'mut', m: 1 });
+    o += R(20, 70, 110, 56, '', 6) + T(75, 92, 'إطار بث شامل', { s: 11, w: 700 }) + T(75, 110, 'dst = FF:FF…', { s: 10, m: 1, c: 'mut' });
+    o += A(134, 98, 214, 98, 'hi') + R(220, 66, 120, 64, 'hi', 6) + T(280, 92, 'الجهاز', { s: 11, w: 700, c: 'ok' }) + T(280, 112, 'يعالج الإطار', { s: 11, w: 700, c: 'ok' });
+    o += OK(280, 156) + T(180, 184, 'يقبله ويرفعه للطبقة الأعلى', { s: 12, w: 700, c: 'ok' });
+  } else if (s.mode === 'sfct') {
+    const seg = (y, name, hi, parts) => { let x = 24, r = T(180, y - 12, name, { s: 11, w: 700, c: hi ? 'ok' : 'ink' }); parts.forEach(p => { r += R(x, y, p[1], 30, p[2] || (hi ? 'hi' : ''), 4) + T(x + p[1] / 2, y + 19, p[0], { s: 9, m: 1, w: 700, c: p[2] === 'acc' ? 'acc' : (hi ? 'ok' : 'ink') }); x += p[1] + 2; }); return r; };
+    const ct = s.hi === 'ct' || s.hi === 'both', sf = s.hi === 'sf' || s.hi === 'both';
+    o += seg(40, 'Cut-through · يبدأ التمرير بعد MAC الوجهة (أسرع)', ct, [['Dest MAC', 62, 'acc'], ['يمرّر فورًا ← ← ←', 200], ['', 0]].filter(p => p[1]));
+    o += seg(116, 'Store-and-Forward · ينتظر الإطار ويفحص FCS (أدق)', sf, [['استلام الإطار كاملًا', 150], ['FCS ✓', 54, 'acc'], ['ثم يمرّر', 56]]);
+    o += A(24, 176, 336, 176, 'dash') + T(180, 192, 'الزمن', { s: 9, c: 'mut' });
+  }
+  return o;
+}
+
+/* ---------- التغليف ---------- */
+function encap(s) {
+  const h = s.hi || [], all = inc(h, 'all'), g = k => (all || inc(h, k)) ? 'hi' : '';
+  let o = R(8, 10, 344, 180, g('frm'), 8);
+  o += R(12, 16, 62, 20, g('mac') || 'acc', 4) + T(43, 30, 'MAC', { s: 10, m: 1, w: 700, c: 'acc' }) + R(286, 16, 62, 20, g('fcs') || 'acc', 4) + T(317, 30, 'FCS', { s: 10, m: 1, w: 700, c: 'acc' });
+  o += R(80, 16, 200, 156, g('pkt'), 6) + R(84, 20, 52, 18, g('ip') || 'acc', 4) + T(110, 33, 'IP', { s: 10, m: 1, w: 700, c: 'acc' });
+  o += R(88, 44, 184, 106, g('seg'), 6) + R(92, 48, 78, 18, g('port') || 'acc', 4) + T(131, 61, 'TCP · Port', { s: 9.5, m: 1, w: 700, c: 'acc' });
+  o += R(94, 72, 172, 54, g('data'), 5) + T(180, 104, 'Data  البيانات', { s: 12, w: 700 });
+  o += T(180, 142, 'قطعة Segment  ·  L4', { s: 10, w: 600, c: 'mut' }) + T(180, 164, 'حزمة Packet  ·  L3', { s: 10, w: 600, c: 'mut' }) + T(180, 184, 'إطار Frame  ·  L2', { s: 10, w: 600, c: 'mut' });
+  return o;
+}
+
+/* ---------- مقارنة ---------- */
+function versus(s) {
+  let o = '';
+  [['l', 24], ['r', 190]].forEach(([k, x]) => {
+    const d = s[k], hi = s.hi === k || s.hi === 'both';
+    o += R(x, 30, 146, 140, hi ? 'hi' : 'dim', 8) + ML(x + 73, 76, d.t, 14, { s: 16, m: 1, w: 700, c: hi ? 'ok' : 'ink' }) + ML(x + 73, 128, d.d, 20, { s: 10.5, c: hi ? 'ok' : 'mut', w: 600 });
+    if (hi) o += OK(x + 73, 44);
+  });
+  o += C(180, 100, 14, 'acc') + T(180, 104, 'VS', { s: 10, m: 1, w: 700, c: 'acc' });
+  return o;
+}
+
+/* ---------- صح/خطأ ---------- */
+function tf(s) {
+  let o = C(300, 98, 40, s.ok ? 'solid' : 'bad');
+  o += s.ok ? `<path d="M280 98 l14 14 l28-30" class="mkbig"/>` : `<path d="M284 82 l32 32 M316 82 l-32 32" class="mkbig bad"/>`;
+  o += T(300, 160, s.ok ? 'العبارة صحيحة' : 'العبارة خاطئة', { s: 12, w: 700, c: s.ok ? 'ok' : 'bad' });
+  o += ML(120, 62, s.s, 24, { s: 11.5, w: 600, a: 'middle' });
+  if (s.fix) { o += R(14, 110, 212, 56, 'acc', 8) + ML(120, 138, s.fix, 26, { s: 10.5, w: 700, c: 'acc' }); }
+  return o;
+}
+
+/* ---------- ثنائي الاتجاه ---------- */
+function duplex(s) {
+  let o = T(180, 18, s.mode === 'half' ? 'مسار واحد والتناوب في الإرسال · Half-duplex' : 'إرسال واستقبال معًا · Full-duplex', { s: 11, w: 700, c: 'mut' });
+  o += R(20, 70, 56, 60, '') + T(48, 105, 'A', { s: 20, m: 1, w: 700 }) + R(284, 70, 56, 60, '') + T(312, 105, 'B', { s: 20, m: 1, w: 700 });
+  if (s.mode === 'half') { o += A(84, 100, 276, 100, 'acc') + T(180, 88, 'الآن يرسل A', { s: 10, c: 'acc', w: 700 }) + A(276, 120, 84, 120, 'dash') + T(180, 140, 'ثم يرسل B بعد أن ينتهي', { s: 10, c: 'mut' }) + T(180, 176, 'مثل جهاز اللاسلكي (Walkie-talkie)', { s: 11, w: 600 }); }
+  else { o += A(84, 88, 276, 88, 'hi') + A(276, 112, 84, 112, 'hi') + T(180, 150, 'الاتجاهان في نفس اللحظة: لا تصادم', { s: 11, w: 700, c: 'ok' }) + T(180, 176, 'مثل مكالمة هاتفية', { s: 11, w: 600 }); }
+  return o;
+}
+
+/* ---------- الكابلات ---------- */
+function cable(s) {
+  const it = s.items, n = it.length, cw = 340 / n; let o = '';
+  const names = { utp: ['UTP', 'نحاس مجدول بلا حماية'], stp: ['STP', 'نحاس + درع حماية'], coax: ['Coax', 'محوري: BNC / F / N'], fiber: ['Fiber', 'ألياف: نبضات ضوء'], wireless: ['Wireless', 'لاسلكي: موجات'] };
+  it.forEach((k, i) => {
+    const cx = 10 + cw * i + cw / 2, cy = 82, hi = inc(s.hi, i), r = Math.min(34, cw / 2 - 6);
+    if (hi) o += C(cx, cy, r + 8, 'hi');
+    if (k === 'utp' || k === 'stp') {
+      o += C(cx, cy, r, 'jk'); const cols = ['#F08A24', '#3DAA5C', '#3B82C4', '#8B5E3C'];
+      for (let j = 0; j < 4; j++) { const a = j * Math.PI / 2 + Math.PI / 4, px = cx + r * .5 * Math.cos(a), py = cy + r * .5 * Math.sin(a), d = r * .2; o += `<circle cx="${px - d * Math.cos(a + 1.57) * .6}" cy="${py - d * Math.sin(a + 1.57) * .6}" r="${r * .15}" fill="${cols[j]}"/><circle cx="${px + d * Math.cos(a + 1.57) * .6}" cy="${py + d * Math.sin(a + 1.57) * .6}" r="${r * .15}" fill="#fff" stroke="${cols[j]}" stroke-width="1.5"/>`; }
+      if (k === 'stp') o += `<circle cx="${cx}" cy="${cy}" r="${r * .86}" class="shield"/>`;
+    } else if (k === 'coax') { o += C(cx, cy, r, 'jk') + `<circle cx="${cx}" cy="${cy}" r="${r * .78}" class="shield"/>` + `<circle cx="${cx}" cy="${cy}" r="${r * .6}" fill="#E9E4D3"/><circle cx="${cx}" cy="${cy}" r="${r * .2}" fill="#D98B3A"/>`; }
+    else if (k === 'fiber') { o += C(cx, cy, r, 'jk') + `<circle cx="${cx}" cy="${cy}" r="${r * .62}" fill="#CFE6F2" opacity=".85"/><circle cx="${cx}" cy="${cy}" r="${r * .22}" fill="#F7D548"/>` + `<path d="M${cx - r * .1} ${cy} l-${r * .35} -${r * .35} M${cx + r * .1} ${cy} l${r * .35} -${r * .35}" class="ln acc"/>`; }
+    else if (k === 'wireless') { o += `<line x1="${cx}" y1="${cy + r * .8}" x2="${cx}" y2="${cy - r * .2}" class="ln" style="stroke-width:3"/><circle cx="${cx}" cy="${cy - r * .3}" r="4" fill="var(--acc)"/>`; [r * .5, r * .85, r * 1.2].forEach(q => o += `<path d="M${cx - q * .8} ${cy - r * .3 - q * .55} A${q} ${q} 0 0 1 ${cx + q * .8} ${cy - r * .3 - q * .55}" class="ln acc" style="stroke-width:1.8"/>`); }
+    o += T(cx, 140, names[k][0], { s: 12, m: 1, w: 700, c: hi ? 'ok' : 'ink' }) + ML(cx, 160, names[k][1], Math.floor(cw / 6.2), { s: 9.5, c: hi ? 'ok' : 'mut', w: 600 });
+    if (hi) o += OK(cx + r, cy - r);
+  });
+  return o;
+}
+
+/* ---------- التشويش ---------- */
+function wave(x0, x1, cy, amp, f, ph = 0, dec = 0) {
+  let d = ''; for (let x = x0; x <= x1; x += 3) { const a = amp * (1 - dec * (x - x0) / (x1 - x0)); d += (x === x0 ? 'M' : 'L') + x + ' ' + (cy + a * Math.sin((x - x0) * f + ph)).toFixed(1) + ' '; } return d;
+}
+function xtalk(s) {
+  let o = '';
+  if (s.mode === 'xtalk') {
+    o += T(180, 18, 'تسرّب إشارة سلك إلى السلك المجاور · Crosstalk', { s: 11, w: 700, c: 'mut' });
+    o += `<path d="${wave(20, 340, 62, 14, .13)}" class="ln acc"/>` + `<path d="${wave(20, 340, 140, 5, .13, 1)}" class="ln bad" style="opacity:.8"/>`;
+    o += T(180, 92, 'سلك 1: الإشارة الأصلية', { s: 10, c: 'acc', w: 700 }) + T(180, 170, 'سلك 2: ضوضاء متسرّبة', { s: 10, c: 'bad', w: 700 });
+    [36, 324].forEach(x => o += A(x, 80, x, 126, 'dash'));
+  } else if (s.mode === 'twist') {
+    o += T(180, 18, 'لَفّ الأزواج يعكس المجالات فتُلغي بعضها', { s: 11, w: 700, c: 'mut' });
+    o += `<path d="${wave(20, 340, 90, 22, .16)}" class="ln acc" style="stroke-width:3"/><path d="${wave(20, 340, 90, -22, .16)}" class="ln hi" style="stroke-width:3"/>`;
+    o += T(180, 148, 'سلكان ملتفّان = تداخل أقل (Cancellation)', { s: 11, w: 700, c: 'ok' }) + T(180, 170, 'كلما زاد الالتفاف قلّ الـ Crosstalk', { s: 10, c: 'mut' });
+  } else {
+    o += T(180, 18, 'ضعف الإشارة مع طول الكابل · Attenuation', { s: 11, w: 700, c: 'mut' });
+    o += `<path d="${wave(20, 340, 90, 40, .15, 0, .88)}" class="ln acc" style="stroke-width:2.5"/>` + A(30, 160, 330, 160, 'dash') + T(180, 180, 'المسافة', { s: 9, c: 'mut' });
+  }
+  return o;
+}
+
+/* ---------- الأداء ---------- */
+function perf(s) {
+  let o = '';
+  if (s.k === 'latency') {
+    o += T(180, 18, 'زمن الوصول من نقطة لأخرى شاملًا التأخيرات · Latency', { s: 10.5, w: 700, c: 'mut' });
+    o += C(50, 100, 22) + T(50, 104, 'A', { s: 16, m: 1, w: 700 }) + C(310, 100, 22) + T(310, 104, 'B', { s: 16, m: 1, w: 700 }) + A(76, 100, 284, 100, 'acc');
+    o += C(180, 70, 20, 'acc') + `<path d="M180 70 v-11 M180 70 l8 5" class="ln acc"/>` + T(180, 128, 'كم استغرق الوصول؟ = زمن', { s: 11, w: 700 });
+  } else if (s.k === 'throughput') {
+    o += T(180, 18, 'عدد البتات المنقولة خلال مدة معينة · Throughput', { s: 11, w: 700, c: 'mut' });
+    o += R(30, 70, 300, 50, '', 25); for (let i = 0; i < 9; i++) o += C(56 + i * 31, 95, 8, 'solid');
+    o += T(180, 150, 'بتات / ثانية', { s: 13, w: 700, c: 'ok' });
+  } else {
+    o += T(180, 18, 'البيانات المفيدة فقط بعد الترويسات · Goodput', { s: 11, w: 700, c: 'mut' });
+    o += R(30, 70, 300, 50, '', 25); for (let i = 0; i < 9; i++) o += C(56 + i * 31, 95, 8, i % 3 === 2 ? 'dim' : 'solid');
+    o += T(180, 150, 'Goodput < Throughput', { s: 12, m: 1, w: 700, c: 'ok' });
+  }
+  return o;
+}
+
+/* ---------- نطاق الشبكات ---------- */
+function nest(s) {
+  const hi = s.hi; let o = '';
+  o += R(8, 8, 344, 128, hi === 'internet' ? 'hi' : '', 12) + T(180, 26, 'Internet · شبكات عالمية متصلة', { s: 11, w: 700, c: hi === 'internet' ? 'ok' : 'mut' });
+  o += R(40, 38, 280, 90, hi === 'wan' ? 'hi' : '', 10) + T(180, 55, 'WAN · شبكة واسعة بين المدن', { s: 11, w: 700, c: hi === 'wan' ? 'ok' : 'mut' });
+  o += R(94, 68, 172, 52, hi === 'lan' ? 'hi' : '', 8) + T(180, 88, 'LAN', { s: 14, m: 1, w: 700, c: hi === 'lan' ? 'ok' : 'ink' }) + T(180, 107, 'منزل · قسم · مكتب صغير', { s: 10, c: hi === 'lan' ? 'ok' : 'mut', w: 600 });
+  o += R(14, 146, 160, 44, hi === 'intranet' ? 'hi' : '', 8) + T(94, 165, 'Intranet', { s: 12, m: 1, w: 700, c: hi === 'intranet' ? 'ok' : 'ink' }) + T(94, 181, 'موظفو المؤسسة فقط', { s: 10, w: 600, c: hi === 'intranet' ? 'ok' : 'mut' });
+  o += R(186, 146, 160, 44, hi === 'extranet' ? 'hi' : '', 8) + T(266, 165, 'Extranet', { s: 12, m: 1, w: 700, c: hi === 'extranet' ? 'ok' : 'ink' }) + T(266, 181, 'شركاء وموردون بصلاحية', { s: 10, w: 600, c: hi === 'extranet' ? 'ok' : 'mut' });
+  return o;
+}
+
+/* ---------- محاكاة الطرفية ---------- */
+function cmd(s) {
+  const ls = s.lines, h = 34 + ls.length * 19, y0 = Math.max(6, (H - h) / 2); let o = R(8, y0, 344, h, 'term', 8) + `<circle cx="22" cy="${y0 + 14}" r="3.5" fill="#E5534B"/><circle cx="34" cy="${y0 + 14}" r="3.5" fill="#E8B130"/><circle cx="46" cy="${y0 + 14}" r="3.5" fill="#3DAA5C"/>`;
+  o += T(344, y0 + 18, s.title || 'Cisco IOS CLI', { a: 'end', s: 9, m: 1, c: 'tmut' });
+  ls.forEach((l, i) => {
+    const y = y0 + 40 + i * 19;
+    if (l.hi) o += `<rect x="12" y="${y - 12}" width="336" height="18" rx="3" class="tline"/>`;
+    const txt = (l.p || '') + ' ' + (l.c !== undefined ? l.c : l.o), fs = Math.min(10.5, 318 / (txt.length * 0.62)).toFixed(1);
+    if (l.c !== undefined) o += `<text x="18" y="${y}" class="t mono tp" font-size="${fs}" direction="ltr">${E(l.p)}<tspan class="tc"> ${E(l.c)}</tspan></text>`;
+    else if (/[\u0600-\u06FF]/.test(l.o)) o += `<text x="342" y="${y}" class="t ${l.e ? 'te' : 'to'}" font-size="11" text-anchor="start" font-weight="600">${E(l.o)}</text>`;
+    else o += `<text x="18" y="${y}" class="t mono ${l.e ? 'te' : 'to'}" font-size="${fs}" direction="ltr">${E(l.o)}</text>`;
+  });
+  return o;
+}
+
+/* ---------- شبكة بطاقات ---------- */
+function grid(s) {
+  const it = s.items, n = it.length, cols = n <= 3 ? n : (n === 4 ? 2 : 3), rows = Math.ceil(n / cols), gap = 8, ch = (H - 12 - (rows - 1) * gap) / rows; let o = '';
+  it.forEach((d, i) => {
+    const r = Math.floor(i / cols), c = i % cols, inRow = r === rows - 1 && n % cols ? n % cols : cols, cw = (344 - (inRow - 1) * gap) / inRow;
+    const x = 8 + c * (cw + gap) + (inRow < cols ? 0 : 0), y = 6 + r * (ch + gap), hi = inc(s.hi, i);
+    o += R(x, y, cw, ch, hi ? 'hi' : 'dim', 8);
+    const cn = Math.floor(cw / (d.m ? 6 : 6.4));
+    o += ML(x + cw / 2, y + ch * (rows > 1 ? .34 : .36), d.t, cn, { s: rows > 1 ? 11 : 12.5, w: 700, m: d.m, c: hi ? 'ok' : 'ink' });
+    o += ML(x + cw / 2, y + ch * (rows > 1 ? .72 : .72), d.d, cn + 3, { s: rows > 1 ? 9.5 : 10.5, c: hi ? 'ok' : 'mut', w: 600 });
+    if (hi) o += OK(x + cw - 12, y + 12);
+  });
+  return o;
+}
+
+const RENDER = { layers, chain, cast, numconv, topo, ios, frame, sw, encap, versus, tf, duplex, cable, xtalk, perf, nest, cmd, grid };
+function diagram(spec) {
+  const body = RENDER[spec.t](spec);
+  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${E(spec.cap || 'رسم توضيحي')}">${body}</svg>`;
+}
+
+/* ===== أنواع رسوم إضافية ===== */
+
+/* لوحة أم */
+function board(s) {
+  const P = {
+    cpu: [58, 34, 62, 62, 'CPU', 'المعالج'], ram: [150, 28, 56, 74, 'RAM', 'الذاكرة'], chip: [96, 112, 54, 30, 'Chipset', 'الشرائح'],
+    pcie: [40, 156, 170, 14, 'PCIe', 'بطاقات التوسعة'], sata: [236, 150, 92, 18, 'SATA', 'الأقراص'], atx: [306, 24, 30, 66, '24-pin', 'الطاقة'],
+    cmos: [226, 42, 28, 28, 'CMOS', 'البطارية'], bios: [226, 82, 36, 16, 'BIOS', 'الإقلاع']
+  };
+  let o = R(8, 8, 344, 184, 'brd', 10);
+  Object.entries(P).forEach(([k, p]) => {
+    const hi = inc(s.hi, k);
+    if (k === 'ram') { for (let i = 0; i < 4; i++) o += R(p[0] + i * 14, p[1], 10, p[3], hi ? 'hi' : '', 2); }
+    else if (k === 'cmos') o += C(p[0] + 14, p[1] + 14, 14, hi ? 'hi' : '');
+    else o += R(p[0], p[1], p[2], p[3], hi ? 'hi' : '', 4);
+    const lx = p[0] + p[2] / 2, ly = k === 'pcie' ? p[1] - 5 : (k === 'sata' ? p[1] + p[3] + 12 : (k === 'cmos' ? p[1] - 4 : p[1] + p[3] + 11));
+    if (k === 'cpu' || k === 'chip' || k === 'bios') o += T(lx, p[1] + p[3] / 2 + 3, p[4], { s: 8, m: 1, w: 700, c: hi ? 'ok' : 'ink' });
+    else o += T(lx, ly, p[4], { s: 8, m: 1, w: 700, c: hi ? 'ok' : 'mut' });
+    if (hi) o += OK(p[0] + p[2] - 2, p[1] + 2);
+  });
+  if (s.cap2) o += T(180, 186, s.cap2, { s: 10, c: 'mut' });
+  return o;
+}
+
+/* RAID */
+function raid(s) {
+  let o = T(180, 18, s.mode === 0 ? 'RAID 0 · Striping: توزيع البيانات على قرصين' : 'RAID 1 · Mirroring: نسختان متطابقتان', { s: 11, w: 700, c: 'mut' });
+  const disk = (x, label, blocks, hi) => { let r = R(x, 40, 90, 100, hi ? 'hi' : '', 8) + T(x + 45, 58, label, { s: 11, m: 1, w: 700, c: 'ink' }); blocks.forEach((b, i) => r += R(x + 12, 68 + i * 17, 66, 14, 'acc', 3) + T(x + 45, 79 + i * 17, b, { s: 9, m: 1, w: 700, c: 'acc' })); return r; };
+  if (s.mode === 0) { o += disk(60, 'Disk 1', ['A1', 'A3', 'A5'], 1) + disk(210, 'Disk 2', ['A2', 'A4', 'A6'], 1) + T(180, 164, 'أسرع أداء، لكن تعطل قرص = ضياع كل البيانات', { s: 11, w: 700, c: 'bad' }); }
+  else { o += disk(60, 'Disk 1', ['A1', 'A2', 'A3'], 1) + disk(210, 'Disk 2', ['A1', 'A2', 'A3'], 1) + T(180, 164, 'تعطل قرص؟ النسخة الثانية تحفظ البيانات', { s: 11, w: 700, c: 'ok' }); }
+  return o;
+}
+
+/* المحاكاة الافتراضية */
+function hyper(s) {
+  const lay = (x, t, hi) => { const st = t === 1 ? [['Hardware', 'العتاد'], ['Hypervisor', 'نوع 1: على العتاد مباشرة'], ['VM 1 · VM 2', 'أنظمة افتراضية']] : [['Hardware', 'العتاد'], ['Host OS', 'نظام المضيف'], ['Hypervisor', 'نوع 2: مثل VirtualBox'], ['VM 1 · VM 2', 'أنظمة افتراضية']]; let r = '';
+    const n = st.length, h = (150 - (n - 1) * 6) / n; st.forEach((d, i) => { const y = 30 + (n - 1 - i) * (h + 6), hv = hi && (d[0] === 'Hypervisor'); r += R(x, y, 160, h, hv ? 'hi' : (i === n - 1 ? 'acc' : ''), 6) + T(x + 80, y + h / 2 - 1, d[0], { s: 11, m: 1, w: 700, c: hv ? 'ok' : 'ink' }) + T(x + 80, y + h / 2 + 12, d[1], { s: 9, c: 'mut' }); }); return r; };
+  let o = '';
+  if (s.mode === 't1') o += lay(100, 1, true) + T(180, 16, 'Type 1 · Bare metal', { s: 11, m: 1, w: 700, c: 'mut' });
+  else if (s.mode === 't2') o += lay(100, 2, true) + T(180, 16, 'Type 2 · Hosted', { s: 11, m: 1, w: 700, c: 'mut' });
+  else o += lay(10, 1, s.hi === 1) + lay(190, 2, s.hi === 2) + T(90, 16, 'Type 1', { s: 11, m: 1, w: 700, c: 'mut' }) + T(270, 16, 'Type 2', { s: 11, m: 1, w: 700, c: 'mut' });
+  return o;
+}
+
+/* قناع الشبكة */
+function mask(s) {
+  const p = s.p; let o = T(180, 18, `بادئة /${p} = ${p} بتًا للشبكة و${32 - p} بتًا للأجهزة`, { s: 11, w: 700, c: 'mut' });
+  const cw = 9, gw = 14, x0 = (W - (32 * cw + 3 * gw)) / 2; const oct = [0, 1, 2, 3].map(i => { let b = 0; for (let k = 0; k < 8; k++) if (i * 8 + k < p) b |= 128 >> k; return b; });
+  for (let i = 0; i < 32; i++) { const x = x0 + i * cw + Math.floor(i / 8) * gw, net = i < p; o += `<rect x="${x}" y="40" width="${cw - 1.5}" height="22" rx="2" class="bx ${net ? 'acc' : ''}"/>`; }
+  oct.forEach((v, i) => { const cx = x0 + i * (8 * cw + gw) + 4 * cw; o += T(cx, 82, v, { s: 14, m: 1, w: 700, c: v === 255 ? 'acc' : 'ink' }); if (i < 3) o += T(cx + 4 * cw + gw / 2, 86, '.', { s: 14, m: 1, w: 700, c: 'mut' }); });
+  o += R(40, 94, 14, 10, 'acc', 2) + T(62, 103, 'شبكة (1)', { s: 10, a: 'start', c: 'mut' }) + R(150, 94, 14, 10, '', 2) + T(172, 103, 'أجهزة (0)', { s: 10, a: 'start', c: 'mut' });
+  o += R(70, 120, 220, 36, 'solid', 8) + T(180, 144, oct.join('.'), { s: 17, m: 1, w: 700, c: 'on' });
+  if (s.note) o += ML(180, 178, s.note, 44, { s: 10.5, w: 700, c: 'ok' });
+  return o;
+}
+
+/* تبادل رسائل */
+function seq(s) {
+  const n = s.msgs.length, top = 44, gap = Math.min(30, 132 / n); let o = T(60, 22, s.a, { s: 12, w: 700 }) + T(300, 22, s.b, { s: 12, w: 700 });
+  o += L(60, 32, 60, 190, 'dash') + L(300, 32, 300, 190, 'dash');
+  s.msgs.forEach((m, i) => { const y = top + 14 + i * gap, hi = inc(s.hi, i), k = hi ? 'hi' : 'acc'; o += m.d === '>' ? A(64, y, 296, y, k) : A(296, y, 64, y, k); o += T(180, y - 5, m.t, { s: 10.5, m: /^[\x00-\x7F]+$/.test(m.t), w: 700, c: hi ? 'ok' : 'acc' }); });
+  return o;
+}
+
+/* مسار خطوات عمودي (قائمة مرقمة بلوح) */
+function steps(s) {
+  const n = s.items.length, h = Math.min(30, 176 / n - 4); let o = '';
+  s.items.forEach((t, i) => { const y = 10 + i * (h + 4), hi = inc(s.hi, i); o += R(10, y, 340, h, hi ? 'hi' : '', 6) + C(34, y + h / 2, h / 2 - 3, hi ? 'solid' : 'acc') + T(34, y + h / 2 + 3.5, i + 1, { s: 10, m: 1, w: 700, c: hi ? 'on' : 'acc' }) + T(338, y + h / 2 + 4, t, { s: 11, a: 'end', w: 600, c: hi ? 'ok' : 'ink' }); });
+  return o;
+}
+
+Object.assign(RENDER, { board, raid, hyper, mask, seq, steps });
+
+/* ===== التقييمات الذاتية: 45 سؤالاً في 9 تقييمات ===== */
+const TOPICS = { a1: 'التقييم 1 · أساسيات الشبكات', a2: 'التقييم 2 · عنونة IPv4', a3: 'التقييم 3 · عنونة IPv6', a4: 'التقييم 4 · الموجّه والتوجيه', a5: 'التقييم 5 · ربط البيانات', a6: 'التقييم 6 · طبقة النقل', a7: 'التقييم 7 · طبقة التطبيق', a8: 'التقييم 8 · الأمن والـ WAN', a9: 'التقييم 9 · الوصول والإنترنت' };
+const TF = ['صواب', 'خطأ'];
+const T_ = (ok, s, fix) => ({ t: 'tf', ok, s, fix });
+const qn = (id, topic, o, a, en, ar, tip, why, d, note) => { const e = q(id, topic, o, a, en, ar, tip, why, d); if (note) e.note = note; return e; };
+const tq = (id, topic, ok, en, ar, tip, why, d, note) => qn(id, topic, TF, [ok ? 0 : 1], en, ar, tip, why, d, note);
+const Q = [
+/* ---- التقييم 1 ---- */
+qn(1,'a1',['data quality','data redundancy','data integration','data confidentiality'],[3],
+ 'The network administrator implements a policy that requires strong and complex passwords. What data protection objective does this policy support?',
+ 'مدير الشبكة يفرض كلمات مرور قوية ومعقدة. أي هدف لحماية البيانات تدعمه هذه السياسة؟',
+ 'كلمة مرور قوية = بابٌ مقفل = السرية (Confidentiality).',
+ 'كلمات المرور القوية تمنع غير المخوّلين من الاطلاع على البيانات، وهذا هو تعريف السرية.',
+ ch([['كلمة مرور قوية','Strong password'],['منع غير المخوّل','من الاطلاع'],['Confidentiality','السرية']],[2])),
+qn(2,'a1',['Provides connections through global interconnected networks','It is a private network for an organization that has LAN and WAN connections.','It is a network based on Ethernet technology','Provides network access to mobile devices'],[0],
+ 'What is the Internet?','ما هو الإنترنت؟',
+ 'الإنترنت = شبكات العالم المتصلة ببعضها.',
+ 'الإنترنت ليس شبكة واحدة، بل مجموعة شبكات عالمية مترابطة. الخيار (b) يصف الإنترانت.',
+ { t: 'nest', hi: 'internet' }),
+qn(3,'a1',['Deny service to your email server','Spyware that leads to spam emails','Seizure of personal data that leads to identity theft','Worms and viruses replicate on your computer'],[2],
+ "What security breach could cause the most harm to a home user's life?",'أي خرق أمني قد يسبب أكبر ضرر لحياة مستخدم منزلي؟',
+ 'أخطر ما يخسره الفرد: هويته. سرقة البيانات = سرقة هوية.',
+ 'سرقة البيانات الشخصية قد تقود إلى انتحال الهوية والخسارة المالية، وهذا أشد من البريد المزعج أو تعطل الخدمة.',
+ g([['تعطيل خادم البريد','أذى محدود'],['برامج تجسس','بريد مزعج'],['سرقة بيانات شخصية','سرقة هوية ✓'],['ديدان وفيروسات','تتكاثر']],[2])),
+tq(4,'a1',false,'Extranet is a kind of network a home user should have access to in order to do online shopping.','الإكسترانت نوع من الشبكات يحتاجه المستخدم المنزلي للتسوق عبر الإنترنت.',
+ 'المتسوق المنزلي يحتاج الإنترنت، والإكسترانت لشركاء الأعمال.',
+ 'الإكسترانت يمنح جهات خارجية موثوقة (موردين وعملاء) وصولًا محدودًا لشبكة شركة. التسوق المنزلي يتم عبر الإنترنت.',
+ T_(false,'الإكسترانت مطلوب للتسوق المنزلي','التسوق يتم عبر الإنترنت؛ الإكسترانت لشركاء الأعمال')),
+tq(5,'a1',false,'A firewall is a device that performs the function of determining the path that messages over the Internet should take.','الجدار الناري جهاز وظيفته تحديد المسار الذي تسلكه الرسائل عبر الإنترنت.',
+ 'الجدار يحرس، والموجّه يوجّه.',
+ 'تحديد المسار وظيفة الموجّه (Router). أما الجدار الناري فيرشّح الحركة ويسمح أو يمنع.',
+ T_(false,'الجدار الناري يحدد مسار الرسائل','الموجّه يحدد المسار، والجدار يرشّح الحركة')),
+/* ---- التقييم 2 ---- */
+qn(6,'a2',['255.255.252.0','255.255.224.0','255.255.255.192','255.255.255.0'],[0],
+ 'What subnet mask does the slash /22 represent?','أي قناع شبكة تمثّله البادئة /22؟',
+ '/22 = 8+8+6 بتًا؛ السادسة تعطي 252.',
+ '22 بتًا من الواحدات: ثمانيتان كاملتان (255.255) ثم 6 بتات في الثمانية الثالثة = 11111100 = 252، فالقناع 255.255.252.0.',
+ { t: 'mask', p: 22 }),
+qn(7,'a2',['network address','multicast address','Broadcast','host address'],[3],
+ 'What does an IP address 172.17.4.250/24 represent?','ماذا يمثّل العنوان 172.17.4.250/24؟',
+ 'آخر ثمانية 250: ليست 0 ولا 255، إذن جهاز.',
+ 'مع /24 تبقى الثمانية الأخيرة للأجهزة. القيمة 0 تعني عنوان الشبكة و255 البث، وما بينهما عناوين أجهزة صالحة.',
+ { t: 'mask', p: 24, note: '250 ليست 0 ولا 255 فهو عنوان جهاز' }),
+qn(8,'a2',['To provide feedback on IP packet transmissions','To inform routers about network topology changes','To ensure IP packet delivery','To monitor the domain name process for IP address resolution'],[0],
+ 'What is the purpose of ICMP messages?','ما الغرض من رسائل ICMP؟',
+ 'ICMP = تغذية راجعة عن الحزم (ping وأخطاء).',
+ 'ICMP يعطي ملاحظات عن نجاح أو فشل تسليم حزم IP، لكنه لا يضمن التسليم ولا يتعلق بالتوجيه أو DNS.',
+ ch([['حزمة IP','تُرسل'],['ICMP','رسالة رد'],['تغذية راجعة','نجاح أو خطأ']],[1])),
+tq(9,'a2',false,'The binary number equivalent of the decimal number 232 is 11000110.','المكافئ الثنائي للعدد العشري 232 هو 11000110.',
+ '232 = 128+64+32+8 = 11101000.',
+ 'نطرح أكبر قوى العدد 2 تباعًا: 128 ثم 64 ثم 32 ثم 8، فيصبح الناتج 11101000. العدد 11000110 يساوي 198.',
+ { t: 'numconv', m: 'dec2bin', v: 232, n: 8 }),
+tq(10,'a2',false,'Subnet and logical part are the two parts that make up an IPv4 address.','الشبكة الفرعية والجزء المنطقي هما جزءا عنوان IPv4.',
+ 'عنوان IPv4 = جزء الشبكة + جزء الجهاز.',
+ 'عنوان IPv4 يتكون من جزء الشبكة (Network) وجزء الجهاز (Host) والقناع هو الذي يحدد الحد بينهما.',
+ g([['Network','جزء الشبكة'],['Host','جزء الجهاز']],[0,1],'IPv4 = شبكة + جهاز')),
+/* ---- التقييم 3 ---- */
+qn(11,'a3',['The IP is installed correctly on the host','The default gateway address is configured correctly.','All hosts on the local link are available','The host is connected correctly'],[0],
+ 'What does a successful ping of the ::1 IPv6 address indicate?','ماذا يدل نجاح ping إلى العنوان ::1 في IPv6؟',
+ '::1 = Loopback؛ ينجح إذا IPv6 يعمل على الجهاز نفسه.',
+ 'العنوان ::1 هو عنوان الحلقة الراجعة، ونجاحه يثبت أن حزمة IPv6 مثبّتة وتعمل على المضيف، لا أن الشبكة أو البوابة سليمة.',
+ ch([['ping ::1','Loopback'],['الجهاز يرد','على نفسه'],['IPv6 مثبّت','يعمل بسلام']],[2])),
+qn(12,'a3',['3FFE:1044:0:0:00AB::0057','3FFE: 1044 :: 00AB:: 0057','3FFE: 1044 :: AB:: 57','3FFE: 1044: 0: 0: AB:: 57'],[3],
+ 'Which of these addresses is the shortest abbreviation for 3FFE:1044:0000:0000:00AB:0000:0000:0057?','أي عنوان هو أقصر اختصار صالح للعنوان 3FFE:1044:0000:0000:00AB:0000:0000:0057؟',
+ 'احذف الأصفار البادئة، ثم :: مرة واحدة فقط.',
+ 'يسمح باستخدام :: مرة واحدة في العنوان، لذلك الخياران (b) و(c) باطلان. الخيار (d) يحذف الأصفار البادئة ويستبدل آخر مجموعتي أصفار بـ ::.',
+ cm([{ p: '1)', c: '3FFE:1044:0000:0000:00AB:0000:0000:0057' }, { p: '2)', c: '3FFE:1044:0:0:AB:0:0:57' }, { p: '3)', c: '3FFE:1044:0:0:AB::57', hi: true }], 'ثلاث خطوات للاختصار')),
+qn(13,'a3',['Unique Local','Local Link','Recovery','universal mono'],[1],
+ 'What type of address is automatically assigned to an interface when IPv6 is enabled on that interface?','أي نوع عنوان يُعيَّن تلقائيًا للواجهة عند تفعيل IPv6 عليها؟',
+ 'فعّلت IPv6؟ تحصل فورًا على Link-Local (FE80::).',
+ 'عنوان Link-Local يبدأ بـ FE80::/10 ويُنشأ تلقائيًا، ويُستخدم داخل الوصلة المحلية فقط.',
+ g([['Link-Local','\u202AFE80::\u202C تلقائي ✓'],['Unique Local','\u202AFC00::/7\u202C'],['Global Unicast','\u202A2000::/3\u202C'],['Loopback','\u202A::1\u202C']],[0])),
+tq(14,'a3',false,'A message sent to all hosts on a remote network is a Unicast.','رسالة تُرسل إلى كل الأجهزة في شبكة بعيدة هي Unicast.',
+ 'Unicast = لواحد فقط، وليس لكل الأجهزة.',
+ 'Unicast إرسال من جهاز إلى جهاز واحد. الإرسال إلى جميع الأجهزة بث (Broadcast) في IPv4، ويقابله Multicast في IPv6.',
+ T_(false,'الرسالة إلى جميع الأجهزة هي Unicast','Unicast = جهاز واحد، وللجميع Broadcast')),
+tq(15,'a3',true,'The IPv4 to IPv6 transition technology that manages the interconnection of IPv6 domains is Dual Stack.','تقنية الانتقال من IPv4 إلى IPv6 التي تدير الربط بين نطاقات IPv6 هي Dual Stack.',
+ 'Dual Stack = IPv4 وIPv6 معًا على الجهاز.',
+ 'Dual Stack يشغّل البروتوكولين على الجهاز نفسه. علامة الملف: صواب.',
+ g([['Dual Stack','IPv4 + IPv6 معًا ✓'],['Tunneling','IPv6 داخل IPv4'],['Translation','NAT64']],[0]),
+ 'علامة الملف «صواب»، لكن المرجع يخص الربط بين نطاقات IPv6 بالنفق (Tunneling). Dual Stack يعني تشغيل البروتوكولين معًا.'),
+/* ---- التقييم 4 ---- */
+qn(16,'a4',['Dynamic Path','Default Path','Directly connected road','fixed path'],[2],
+ 'What kind of path does the C icon in the IPv4 routing table on a Cisco router indicate?','أي نوع مسار يدل عليه الرمز C في جدول توجيه IPv4 على موجّه Cisco؟',
+ 'C = Connected: شبكة متصلة مباشرة.',
+ 'الرمز C يعني شبكة متصلة مباشرة بإحدى واجهات الموجّه، أما S فثابت وO وR وD ديناميكية.',
+ cm([{ p: 'C', c: '192.168.1.0/24 is directly connected', hi: true }, { p: 'S', c: '10.0.0.0/8 via 192.168.1.2' }, { p: 'O', c: '172.16.0.0/16 via 192.168.1.3' }], 'جدول التوجيه', 'show ip route')),
+qn(17,'a4',['Contents of the saved configuration file in the NVRAM','To contain the configuration commands that the IOS router is currently using','To facilitate the basic operation of the hardware components of the device','To contain the commands initially used to configure the router at startup'],[0],
+ 'What is the purpose of a startup configuration file on a Cisco router?','ما الغرض من ملف startup-config على موجّه Cisco؟',
+ 'startup = المحفوظ في NVRAM، running = الحالي في RAM.',
+ 'ملف startup-config يحفظ في NVRAM ويُحمّل عند الإقلاع، بينما running-config في الذاكرة العشوائية ويحوي ما يعمل الآن.',
+ { t: 'versus', l: { t: 'startup-config', d: 'محفوظ في NVRAM · يبقى' }, r: { t: 'running-config', d: 'في RAM · الحالي' }, hi: 'l' }),
+qn(18,'a4',['Smaller size for source and destination IP addresses','Low requirements for test processing','Smaller head','Efficient packet processing'],[3],
+ 'What is one of the advantages offered by the simplified IPv6 header over IPv4?','ما إحدى مزايا ترويسة IPv6 المبسطة مقارنة بـ IPv4؟',
+ 'ترويسة أبسط = معالجة أكفأ للحزم.',
+ 'ترويسة IPv6 ثابتة وأبسط، فتعالجها الموجّهات بكفاءة أعلى. عناوين IPv6 أكبر لا أصغر.',
+ ch([['ترويسة IPv6','أبسط وثابتة'],['الموجّه','عمل أقل'],['معالجة فعّالة','للحزم']],[2])),
+tq(19,'a4',false,'SVI and DHCP are the two types of router interfaces.','SVI وDHCP هما نوعا واجهات الموجّه.',
+ 'واجهات الموجّه: LAN وWAN فقط.',
+ 'تصنَّف واجهات الموجّه إلى LAN (مثل Ethernet) وWAN (مثل Serial). SVI واجهة افتراضية على المبدّل، وDHCP خدمة لا واجهة.',
+ T_(false,'SVI وDHCP نوعا واجهات الموجّه','النوعان: LAN وWAN')),
+tq(20,'a4',false,'Serial number is the field in the IPv4 header used to prevent a packet from traversing the network indefinitely.','الرقم التسلسلي هو حقل ترويسة IPv4 الذي يمنع الحزمة من التجوال في الشبكة إلى ما لا نهاية.',
+ 'الحقل الذي يقتل الحزمة التائهة اسمه TTL.',
+ 'الحقل هو TTL (Time To Live) ويُنقَص بمقدار 1 عند كل موجّه، وعند وصوله إلى صفر تُتلف الحزمة.',
+ T_(false,'«الرقم التسلسلي» يمنع الدوران اللانهائي','الحقل الصحيح هو TTL')),
+/* ---- التقييم 5 ---- */
+qn(21,'a5',['to verify the physical address in the frame','to verify the integrity of the received frame','to compute the checksum header for the data field in the frame','to verify the logical address in the frame'],[1],
+ 'What is the function of the CRC value that is found in the FCS field of a frame?','ما وظيفة قيمة CRC الموجودة في حقل FCS في الإطار؟',
+ 'CRC في الذيل = فحص سلامة الإطار.',
+ 'المستقبل يعيد حساب CRC ويقارنه بالقيمة المرسلة، فإن اختلفت أُهمل الإطار لأنه تالف.',
+ { t: 'frame', hi: ['fcs'] }),
+qn(22,'a5',['They include information on user applications','They all include the flow control and logical connection fields.','Ethernet frame header fields contain Layer 3 source and destination addresses','They vary depending on protocols'],[3],
+ 'Which statement describes a characteristic of the frame header fields of the data link layer?','أي عبارة تصف خاصية حقول ترويسة الإطار في طبقة ربط البيانات؟',
+ 'لكل بروتوكول إطاره: الترويسة تتغير.',
+ 'حقول الترويسة تختلف باختلاف بروتوكول الطبقة الثانية (Ethernet وPPP وWi-Fi). وعناوين الطبقة 3 توجد في ترويسة IP لا في إطار Ethernet.',
+ g([['Ethernet','MAC مصدر ووجهة'],['PPP','حقول مختلفة'],['Wi-Fi','حقول مختلفة']],[0,1,2],'الترويسة تتغير بتغير البروتوكول')),
+tq(23,'a5',false,'A network team is comparing physical WAN topologies. The Mesh topology provides high availability and connects some, but not all, remote sites.','فريق شبكات يقارن طوبولوجيات WAN. طوبولوجيا Mesh توفر توافرًا عاليًا وتربط بعض المواقع البعيدة فقط.',
+ 'Mesh = الكل مع الكل، لا بعضهم.',
+ 'في Mesh يرتبط كل موقع بكل المواقع الأخرى فتحصل على توافر عالٍ، لذا القول «بعض المواقع فقط» خطأ.',
+ T_(false,'Mesh يربط بعض المواقع فقط','Mesh يربط كل موقع بكل المواقع')),
+tq(24,'a5',true,'Error detection is contained in the trailer of a data-link frame.','كشف الأخطاء موجود في ذيل (Trailer) إطار ربط البيانات.',
+ 'الذيل = FCS = كاشف الأخطاء.',
+ 'ذيل الإطار يحمل حقل FCS الذي يحوي قيمة CRC لاكتشاف التلف.',
+ T_(true,'كشف الأخطاء في ذيل الإطار (FCS)')),
+tq(25,'a5',true,'Full duplex media communication type does not require media arbitration in the data link layer.','نوع الاتصال Full duplex لا يحتاج إلى تحكّم في الوصول إلى الوسط في طبقة ربط البيانات.',
+ 'Full duplex = مسار للإرسال ومسار للاستقبال، فلا تزاحم.',
+ 'في الاتصال المزدوج الكامل لا تتنافس الأجهزة على الوسط فلا حاجة لتحكيم (مثل CSMA/CD).',
+ { t: 'duplex', mode: 'full' }),
+/* ---- التقييم 6 ---- */
+qn(26,'a6',['Destination devices receive traffic with minimal delay','Destination devices reassemble messages and pass them to an application','The message was lost because FTP is not using a reliable delivery method','Segments of transmitted data are tracked'],[0],
+ 'What are the characteristics associated with UDP sessions?','ما الخصائص المرتبطة بجلسات UDP؟',
+ 'UDP = سريع بلا تتبّع ولا إعادة إرسال.',
+ 'UDP لا يؤسس اتصالًا ولا يتتبع القطع، لذا يصل بأقل تأخير. أما التتبع وإعادة التجميع فمن TCP.',
+ { t: 'versus', l: { t: 'UDP', d: 'سريع · بلا تأكيد' }, r: { t: 'TCP', d: 'موثوق · أبطأ' }, hi: 'l' }),
+qn(27,'a6',['The message was lost because FTP is not using a reliable delivery method','The entire FTP message is resent','The missing portion of the FTP message is resent','The source FTP host sends a query to the destination host.'],[2],
+ 'What happens if part of an FTP message is not delivered to the destination?','ماذا يحدث إذا لم يصل جزء من رسالة FTP إلى الوجهة؟',
+ 'FTP على TCP: يُعاد المفقود فقط.',
+ 'FTP يستخدم TCP الموثوق، فيكتشف المفقود من أرقام التسلسل والتأكيدات ويعيد إرسال الجزء الناقص وحده.',
+ ch([['FTP فوق TCP','موثوق'],['جزء ضائع','لم يصل'],['يُعاد الجزء','المفقود فقط']],[2])),
+qn(28,'a6',['Special Port','Source Port','Registered Port','Dynamic Port'],[2],
+ 'What type of port should I request for use with a specific application?','أي نوع منفذ يُطلب لاستخدامه مع تطبيق محدد؟',
+ 'تطبيق معيّن؟ سجّل منفذًا: Registered (1024–49151).',
+ 'المنافذ المسجّلة (1024–49151) تُخصّص لتطبيقات محددة عبر الطلب من IANA. المعروفة 0–1023 والديناميكية 49152–65535.',
+ g([['\u202A0 – 1023\u202C','Well-known'],['\u202A1024 – 49151\u202C','Registered ✓'],['\u202A49152 – 65535\u202C','Dynamic']],[1])),
+tq(29,'a6',true,'HTTP is an application layer protocol that uses TCP.','HTTP بروتوكول في طبقة التطبيق يستخدم TCP.',
+ 'الويب يحتاج الموثوقية: HTTP فوق TCP (المنفذ 80).',
+ 'HTTP يعتمد على TCP لضمان وصول الصفحات كاملة ومرتبة، ومنفذه المعروف 80.',
+ T_(true,'HTTP يستخدم TCP')),
+tq(30,'a6',true,'ACK is a flag in the TCP header used in response to a FIN received to terminate the connection between two network devices.','ACK علَم في ترويسة TCP يُستخدم ردًّا على FIN لإنهاء الاتصال بين جهازين.',
+ 'FIN يطلب الإنهاء، وACK يردّ بالموافقة.',
+ 'عند إنهاء اتصال TCP يرسل أحد الطرفين FIN ويرد الآخر بـ ACK، ثم يكرر الطرف الآخر العملية.',
+ seqd('A','B',[['>','FIN'],['<','ACK'],['<','FIN'],['>','ACK']],[1])),
+/* ---- التقييم 7 ---- */
+qn(31,'a7',['FTP - To transfer emails and attachments','HTTP - Enables devices on the network to obtain IP addresses','DNS - Resolves Internet names to IP addresses','To the end user Protocol'],[2],
+ 'Which definition accurately describes the associated application layer protocol?','أي تعريف يصف بدقة بروتوكول طبقة التطبيق المرتبط به؟',
+ 'DNS يترجم الأسماء إلى عناوين IP.',
+ 'DNS يحوّل أسماء النطاقات إلى عناوين IP. FTP لنقل الملفات لا البريد، وHTTP للويب، وعناوين IP تمنحها DHCP.',
+ g([['FTP','نقل الملفات'],['HTTP','صفحات الويب'],['DNS','أسماء ← IP ✓'],['DHCP','عناوين IP تلقائيًا']],[2]),
+ 'علامة الملف على الخيار (b)، وهي تخالف المرجع: HTTP لا يمنح عناوين IP (هذا DHCP). الصحيح تقنيًا هو (c).'),
+qn(32,'a7',['Physical','Session','Request','Internet'],[3],
+ 'What application layer of the TCP/IP model performs the functions of the three layers of the OSI model?','أي طبقة في نموذج TCP/IP تؤدي وظائف ثلاث طبقات من نموذج OSI؟',
+ 'التطبيق في TCP/IP = تطبيق + عرض + جلسة في OSI.',
+ 'طبقة Application في TCP/IP تجمع وظائف طبقات Application وPresentation وSession في OSI.',
+ ly('tcp',[0],'التطبيق تضم ثلاث طبقات OSI'),
+ 'الخيارات ناقصة: الإجابة التقنية هي طبقة Application وليست مدرجة. هذا ما علّمه الملف (d).'),
+qn(33,'a7',['Responsibility for logical addressing','Set window size','Create and maintain a dialogue between source and destination applications','Responsibility for physical processing'],[2],
+ 'What are the two distinguishing features of the application layer in the TCP/IP model?','ما الميزتان المميزتان لطبقة التطبيق في نموذج TCP/IP؟',
+ 'طبقة التطبيق تنشئ الحوار بين التطبيقين وتصونه.',
+ 'من وظائف الطبقة إنشاء الحوار بين تطبيق المصدر وتطبيق الوجهة والحفاظ عليه. العنونة المنطقية للإنترنت، وحجم النافذة للنقل.',
+ ch([['تطبيق المصدر','Source'],['حوار','يُنشأ ويُصان'],['تطبيق الوجهة','Destination']],[1]),
+ 'السؤال يطلب ميزتين لكن الملف علّم إجابة واحدة فقط (c).'),
+tq(34,'a7',true,'GET is the kind of message an HTTP client uses to request data from the web server.','GET هي نوع الرسالة التي يستخدمها عميل HTTP لطلب البيانات من خادم الويب.',
+ 'GET = أعطني، POST = خذ.',
+ 'GET يطلب موردًا (صفحة أو ملف) من الخادم، أما POST فيرسل بيانات إليه.',
+ seqd('العميل','الخادم',[['>','GET /index.html'],['<','200 OK + الصفحة']],[0])),
+tq(35,'a7',false,'SMTP is the protocol the client uses to securely connect to the web server.','SMTP هو البروتوكول الذي يستخدمه العميل للاتصال الآمن بخادم الويب.',
+ 'SMTP = بريد صادر، والويب الآمن = HTTPS.',
+ 'SMTP لإرسال البريد الإلكتروني، والاتصال الآمن بالويب يتم عبر HTTPS.',
+ { t: 'versus', l: { t: 'SMTP', d: 'إرسال البريد' }, r: { t: 'HTTPS', d: 'ويب مشفّر آمن' }, hi: 'r' }),
+/* ---- التقييم 8 ---- */
+qn(36,'a8',['encryption','authentication','automatic creation of a private network','automatic creation of a public network'],[0],
+ 'What is a significant benefit provided by IPsec?','ما إحدى الفوائد المهمة التي يوفرها IPsec؟',
+ 'IPsec = تشفير + مصادقة + سلامة.',
+ 'يحمي IPsec الحزم بالتشفير، ويتحقق من الهوية والسلامة. الخيار الأول هو ما علّمه الملف.',
+ g([['Encryption','تشفير ✓'],['Authentication','مصادقة'],['Integrity','سلامة']],[0]),
+ 'الخيار (b) المصادقة صحيح تقنيًا أيضًا، لكن الملف علّم (a) فقط.'),
+qn(37,'a8',['It statically assigns bandwidth based upon pre-assigned time slots','It ensures each of the time slices are assigned to individual conversations','It keeps track of conversations that require extra bandwidth. It then dynamically reassigns unused time slices on an as-needed basis','It ensures that bandwidth is allocated to each channel or time slot regardless of whether the station using the channel has data to send'],[2],
+ 'How does STDM allocate bandwidth on a serial connection?','كيف يوزّع STDM عرض النطاق على اتصال تسلسلي؟',
+ 'STDM = إحصائي: يعيد توزيع الفتحات الفارغة.',
+ 'في TDM العادي تُحجز فتحات ثابتة ولو لم تُستخدم، أما STDM فيتتبع المحادثات ويعيد تخصيص الفتحات غير المستخدمة عند الحاجة.',
+ { t: 'versus', l: { t: 'TDM', d: 'فتحات ثابتة · هدر' }, r: { t: 'STDM', d: 'يعيد المهدور ديناميكيًا' }, hi: 'r' }),
+tq(38,'a8',true,'A company has been assigned the 203.0.113.0/27 block by the ISP and has over 6000 internal devices. Dynamic NAT overload using the pool of addresses is the most appropriate NAT type for its workstations.','أعطى المزوّد شركةً الكتلة 203.0.113.0/27 ولديها أكثر من 6000 جهاز داخلي. NAT الديناميكي مع Overload باستخدام مجموعة العناوين هو الأنسب لأجهزة الموظفين.',
+ 'عناوين قليلة وأجهزة كثيرة؟ Overload (PAT) بمنافذ مختلفة.',
+ 'الكتلة /27 تحوي 30 عنوانًا قابلًا للاستخدام فقط، لذا يلزم Overload ليشارك آلاف الأجهزة عناوين قليلة عبر أرقام منافذ مختلفة.',
+ ch([['6000+ جهاز','عناوين خاصة'],['NAT Overload','PAT'],['عناوين عامة قليلة','بمنافذ متعددة']],[1])),
+tq(39,'a8',true,'Cisco Unified Communications products are part of the Cisco Collaboration Architecture.','منتجات Cisco Unified Communications جزء من Cisco Collaboration Architecture.',
+ 'UC جزء داخل مظلة التعاون.',
+ 'تندرج حلول الاتصالات الموحدة (صوت وفيديو ومراسلة) ضمن بنية التعاون من Cisco.',
+ ch([['Collaboration Architecture','المظلة الكبرى'],['Unified Communications','جزء منها ✓']],[1])),
+tq(40,'a8',true,'Encryption and Encapsulation are two significant benefits provided by IPsec.','التشفير والتغليف فائدتان مهمتان يوفرهما IPsec.',
+ 'IPsec يشفّر ويغلّف داخل نفق.',
+ 'يوفر IPsec التشفير، ويغلّف الحزم الأصلية داخل حزم جديدة (وضع النفق) لحمايتها.',
+ g([['Encryption','تشفير ✓'],['Authentication','مصادقة'],['Integrity','سلامة'],['Encapsulation','تغليف ✓']],[0,3])),
+/* ---- التقييم 9 ---- */
+qn(41,'a9',['2.11 miles or 3.39 kilometers','11.18 miles or 18 kilometers','6.21 miles or 10 kilometers','3.39 miles or 5.46 kilometers'],[3],
+ 'What is the approximate distance limitation for providing a satisfactory ADSL service from the central office to a customer?','ما حد المسافة التقريبي لخدمة ADSL مرضية من المقسم المركزي إلى العميل؟',
+ '3.39 ميلًا = 5.46 كم.',
+ 'جودة ADSL تتراجع مع البعد عن المقسم، ويبلغ الحد التقريبي المرضي نحو 5.46 كم (3.39 ميلًا).',
+ g([['\u202A2.11 mi\u202C','\u202A3.39 km\u202C'],['\u202A3.39 mi\u202C','\u202A5.46 km\u202C ✓'],['\u202A6.21 mi\u202C','\u202A10 km\u202C'],['\u202A11.18 mi\u202C','\u202A18 km\u202C']],[1],'ADSL مجدٍ حتى نحو 5.46 كم')),
+qn(42,'a9',['SOHO','CO','DSLAM','CPE'],[3],
+ 'What is a component of an ADSL connection that is located at the customer site?','ما مكوّن اتصال ADSL الموجود عند موقع العميل؟',
+ 'CPE = Customer Premises: عند العميل.',
+ 'CPE هو جهاز العميل (المودم أو الموجّه). أما CO وDSLAM فعند مزوّد الخدمة.',
+ ch([['CPE','عند العميل ✓'],['خط DSL','خط الهاتف'],['DSLAM','عند المزوّد']],[0])),
+qn(43,'a9',['separates voice from data signals','separates POTS traffic from ADSL traffic','multiplexes individual customer DSL connections into a single upstream link','communicates directly with customer cable modems to provide Internet services to customers'],[2],
+ 'What is the function of the DSLAM in a broadband DSL network?','ما وظيفة DSLAM في شبكة DSL عريضة النطاق؟',
+ 'DSLAM = يجمع خطوط العملاء في رابط واحد.',
+ 'DSLAM عند المزوّد يدمج (Multiplex) خطوط DSL لكثير من العملاء في رابط صاعد واحد نحو الشبكة.',
+ ch([['خطوط عملاء DSL','كثيرة'],['DSLAM','يجمّعها'],['رابط واحد','نحو الشبكة']],[1])),
+tq(44,'a9',false,'WiMax is the broadband technology that would be best for a small office that requires fast upstream connections.','WiMax هي تقنية النطاق العريض الأفضل لمكتب صغير يحتاج اتصالًا صاعدًا سريعًا.',
+ 'WiMAX للتغطية الواسعة، لا للرفع السريع في مكتب صغير.',
+ 'WiMAX تقنية لاسلكية واسعة التغطية للمناطق النائية، ولا تُعد الخيار الأمثل لمكتب صغير يحتاج رفعًا سريعًا.',
+ T_(false,'WiMax الأنسب لمكتب صغير يحتاج رفعًا سريعًا','WiMAX للتغطية الواسعة والمناطق النائية')),
+tq(45,'a9',true,'PPPoE is configured on the dialer interface of a Cisco router.','يُهيَّأ PPPoE على الواجهة dialer في موجّه Cisco.',
+ 'PPPoE = واجهة dialer.',
+ 'يُضبط PPPoE عبر الواجهة الافتراضية dialer مع تغليف PPP وعنوان يُتفاوض عليه.',
+ cm([{ p: 'R1(config)#', c: 'interface dialer 1', hi: true }, { p: 'R1(config-if)#', c: 'encapsulation ppp' }, { p: 'R1(config-if)#', c: 'ip address negotiated' }], 'واجهة dialer'))
+];
+function seqd(a, b, m, hi) { return { t: 'seq', a, b, msgs: m.map(([d, t]) => ({ d, t })), hi }; }
+
+/* ===== تطبيق الصفحة ===== */
+(function () {
+  const CFG = window.CFG, KEY = CFG.key;
+  const $ = (s, r = document) => r.querySelector(s);
+  const st = { mode: 'test', topic: 'all', text: '', unl: false, known: new Set(), pick: {}, rev: new Set() };
+  try { JSON.parse(localStorage.getItem(KEY + '-known') || '[]').forEach(i => st.known.add(i)); } catch (e) {}
+  try { const t = localStorage.getItem(KEY + '-theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+  const save = () => { try { localStorage.setItem(KEY + '-known', JSON.stringify([...st.known])); } catch (e) {} };
+  const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const norm = s => String(s).toLowerCase();
+  const pad = n => String(n).padStart(3, '0');
+  const LET = 'ABCDE';
+  const hasO = x => Array.isArray(x.o) && x.o.length;
+
+  const counts = {}; Q.forEach(x => counts[x.topic] = (counts[x.topic] || 0) + 1);
+
+  function visible() {
+    const t = norm(st.text.trim());
+    return Q.filter(x => (st.topic === 'all' || x.topic === st.topic)
+      && (!st.unl || !st.known.has(x.id))
+      && (!t || norm([x.id, x.en, x.ar, x.tip, x.why, (x.o||[]).join(' '), (x.ans||[]).join(' ')].join(' ')).includes(t)));
+  }
+  const isRevealed = x => st.mode === 'review' || st.rev.has(x.id);
+  const sameSet = (a, b) => a.length === b.length && a.every(v => b.includes(v));
+
+  function card(x) {
+    const rev = isRevealed(x), pk = st.pick[x.id] || [], test = st.mode === 'test';
+    const opts = !hasO(x) ? '' : x.o.map((t, i) => {
+      const ok = x.a.includes(i), picked = pk.includes(i);
+      let cls = 'op'; if (rev && ok) cls += ' is-ok'; else if (rev && picked) cls += ' is-no'; else if (picked) cls += ' pick';
+      const stt = rev ? (ok ? 'صحيحة' : (picked ? 'خطأ' : '')) : '';
+      return `<li><button type="button" class="${cls}" data-id="${x.id}" data-i="${i}" ${(!test || rev) ? 'disabled' : ''}><span class="jack">${LET[i]}</span><span class="tx">${esc(t)}</span><span class="st">${stt}</span></button></li>`;
+    }).join('');
+    let verdict = '';
+    if (test && rev && pk.length && x.a) verdict = sameSet(pk, x.a) ? '<span class="verdict good">إجابتك صحيحة</span>' : '<span class="verdict badv">إجابتك غير صحيحة، راجع الخلاصة</span>';
+    const multi = (x.a||[]).length > 1 ? ` · اختر ${x.a.length}` : '';
+    const known = st.known.has(x.id);
+    return `<article class="u ${rev ? 'rev' : 'veil'}" id="q${x.id}" data-known="${known ? 1 : 0}">
+      <div class="ear"><div class="no"><small>${CFG.q || 'Q'}</small>${pad(x.id)}</div><i class="led" title="${known ? 'محفوظ' : 'غير محفوظ'}"></i></div>
+      <div class="body">
+        <header class="qh"><span class="topic">${TOPICS[x.topic]}${multi}</span>
+          <p class="q-en" dir="ltr">${esc(x.en)}</p><p class="q-ar">${esc(x.ar)}</p></header>
+        <div class="cols">
+          <div class="lcol">${hasO(x) ? `<ul class="opts" style="list-style:none;margin:0;padding:0;display:grid;gap:8px">${opts}</ul>` : `<div class="ans"><span class="lab">الإجابة الصحيحة</span><div class="chs">${x.ans.map(a => `<span class="ch" dir="ltr">${esc(a)}</span>`).join('')}</div></div>`}${x.note ? `<div class="note"><b>تنبيه:</b> ${esc(x.note)}</div>` : ''}</div>
+          <figure class="dg"><div class="screen">${diagram(x.d)}<div class="veil-note"><span>يظهر الرسم بعد الإجابة</span></div></div>${x.d.cap ? `<figcaption>${esc(x.d.cap)}</figcaption>` : ''}</figure>
+        </div>
+        <div class="tip"><span class="tag">خلاصة ذهنية</span><p>${esc(x.tip)}</p></div>
+        <p class="why"><b>الشرح:</b> ${esc(x.why)}</p>
+        <div class="foot">
+          ${test && !rev ? `<button type="button" class="btn primary" data-act="reveal" data-id="${x.id}">أظهر الإجابة</button>` : ''}
+          ${test && rev ? `<button type="button" class="btn" data-act="retry" data-id="${x.id}">أعد المحاولة</button>` : ''}
+          <button type="button" class="btn learn" data-act="learn" data-id="${x.id}" aria-pressed="${known}"><i></i>${known ? 'حفظتها' : 'علّمها كمحفوظة'}</button>
+          ${verdict}
+        </div>
+      </div></div></article>`;
+  }
+
+  function stats() {
+    const n = st.known.size, tot = Q.length;
+    $('#mKnown').textContent = n; $('#mBar').style.width = (n / tot * 100) + '%'; $('#mTot').textContent = tot;
+    const v = visible();
+    let ro = `المعروض <b>${v.length}</b> من ${tot}`;
+    if (st.mode === 'test') {
+      const ans = Q.filter(x => hasO(x) && st.rev.has(x.id) && (st.pick[x.id] || []).length), okc = ans.filter(x => sameSet(st.pick[x.id], x.a)).length;
+      ro += ` · نتيجتك <b>${okc}</b> / ${ans.length}`;
+    }
+    $('#readout').innerHTML = ro;
+  }
+
+  function chips() {
+    const all = [['all', 'الكل', Q.length], ...Object.keys(TOPICS).map(k => [k, TOPICS[k], counts[k] || 0])];
+    $('#chips').innerHTML = all.map(([k, t, c]) => `<button type="button" class="chip" data-topic="${k}" aria-pressed="${st.topic === k}">${t}<em>${c}</em></button>`).join('');
+  }
+
+  function render() {
+    const v = visible();
+    $('#list').innerHTML = v.length ? v.map(card).join('') : '<div class="empty">لا توجد أسئلة مطابقة. غيّر البحث أو المحور.</div>';
+    document.querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === st.mode));
+    $('#unl').setAttribute('aria-pressed', st.unl);
+    chips(); stats();
+  }
+
+  function rerenderCard(id) {
+    const x = Q.find(z => z.id === id), el = $('#q' + id); if (!x || !el) return render();
+    el.outerHTML = card(x); stats();
+  }
+
+  document.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.mode) { st.mode = b.dataset.mode; st.rev.clear(); st.pick = {}; render(); return; }
+    if (b.dataset.topic) { st.topic = b.dataset.topic; render(); return; }
+    if (b.id === 'unl') { st.unl = !st.unl; render(); return; }
+    if (b.id === 'theme') {
+      const cur = document.documentElement.dataset.theme, dark = cur ? cur === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+      const nx = dark ? 'light' : 'dark'; document.documentElement.dataset.theme = nx; try { localStorage.setItem(KEY + '-theme', nx); } catch (er) {} return;
+    }
+    if (b.id === 'top') { scrollTo({ top: 0 }); return; }
+    const id = +b.dataset.id; if (!id) return;
+    const x = Q.find(z => z.id === id);
+    if (b.dataset.act === 'learn') { st.known.has(id) ? st.known.delete(id) : st.known.add(id); save(); if (st.unl) render(); else rerenderCard(id); return; }
+    if (b.dataset.act === 'reveal') { st.rev.add(id); rerenderCard(id); return; }
+    if (b.dataset.act === 'retry') { st.rev.delete(id); delete st.pick[id]; rerenderCard(id); return; }
+    if (b.classList.contains('op') && st.mode === 'test' && !st.rev.has(id) && x.a) {
+      const i = +b.dataset.i, pk = st.pick[id] || [];
+      if (x.a.length === 1) st.pick[id] = [i];
+      else st.pick[id] = pk.includes(i) ? pk.filter(v => v !== i) : [...pk, i];
+      if (st.pick[id].length === x.a.length) st.rev.add(id);
+      rerenderCard(id);
+    }
+  });
+  $('#search').addEventListener('input', e => { st.text = e.target.value; render(); });
+
+  /* وضع الأسئلة المتعددة الإجابات: تمثيل نصي للعدد */
+  /* LEDs في الواجهة */
+  $('#leds').innerHTML = Array.from({ length: 24 }, (_, i) => `<i class="${i % 7 === 3 ? 'o' : (i % 3 === 0 || i % 5 === 1) ? 'on' : ''}"></i>`).join('');
+  render();
+})();
+</script></body></html>
